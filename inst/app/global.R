@@ -28,7 +28,6 @@ param_defaults <- list(
   add_zeroes = 0,	
   lb_global = 0,	
   lb_cr	= 0,
-  prop_cr_start =	0,
   ppm_amo_lower	= -0.2,
   ppm_amo_upper	= 0.2,
   ppm_mix_lower	= -0.2,

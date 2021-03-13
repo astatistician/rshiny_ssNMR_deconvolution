@@ -10,9 +10,9 @@ server <- function(input, output, session) {
 	
 # create a data frame (empty for the time being) for storing the estimated parameters
 	param_defaults_names <- names(param_defaults)
-	preproc_param_names <- param_defaults_names[param_defaults_names %in% c("ppm_amo", "ppm_mix", "ph0_mix", "ph1_mix")]
+	preproc_param_names <- param_defaults_names[param_defaults_names %in% c("prop_cr", "ppm_amo", "ppm_mix", "ph0_mix", "ph1_mix")]
 	adv_param_names <- param_defaults_names[param_defaults_names %in% c("add_zeroes", "lb_global", "lb_cr", "prop_cr_start",  "optim_algorithm", "ppm_amo_lower", "ppm_amo_upper", "ppm_mix_lower" ,"ppm_mix_upper", "ph0_mix_lower", "ph0_mix_upper", "ph1_mix_lower", "ph1_mix_upper")] 
-	tmp_names <- names(param_defaults)
+	tmp_names <- c(names(param_defaults), "prop_cr_start")
 	saved_params <- matrix(ncol = length(tmp_names) + 1, nrow = 0); colnames(saved_params) <- c("id", tmp_names)
 	
 	update_n_input_single <- function(id, value) updateNumericInput(session, inputId = id, value = value)
@@ -170,12 +170,21 @@ server <- function(input, output, session) {
 				model_input <- data.frame(ppm = ppm, amo = amo, cr = cr, mix = mix)
 				na_ind <- is.na(model_input$amo) | is.na(model_input$mix)
 				model_input <- model_input[!na_ind, ]
-				cr_mod <- model_input$cr - model_input$amo
-				mix_mod <- model_input$mix - model_input$amo
-				mat_cryst <- cbind(cr_mod)
-				nnls_fit <- nnls::nnls(mat_cryst, mix_mod)
-				dat <- cbind(model_input, fitted = nnls_fit$fitted + model_input$amo, residuals = nnls_fit$residuals)
-				solution <- c(prop_cr = nnls_fit$x, rmse = sqrt(nnls_fit$deviance/nrow(nnls_fit$residuals)))
+				
+				if (input$prop_cr_usage == "estimate"){
+				  cr_mod <- model_input$cr - model_input$amo
+				  mix_mod <- model_input$mix - model_input$amo
+				  mat_cryst <- cbind(cr_mod)
+				  nnls_fit <- nnls::nnls(mat_cryst, mix_mod)
+				  dat <- cbind(model_input, fitted = nnls_fit$fitted + model_input$amo, residuals = nnls_fit$residuals)
+				  solution <- c(prop_cr = nnls_fit$x, rmse = sqrt(nnls_fit$deviance/nrow(nnls_fit$residuals)))				  
+				  update_n_input_single("prop_cr", nnls_fit$x)
+				} else {
+				  fitted <- input$prop_cr * model_input$cr + (1-input$prop_cr) * model_input$amo
+				  residuals <- model_input$mix - fitted
+				  dat <- cbind(model_input, fitted = fitted, residuals = residuals)
+				  solution <- c(prop_cr = input$prop_cr, rmse = sqrt(mean(residuals^2)))
+				}
 				return(list(dat = dat, solution = solution))
 			}, label = "do manual fitting")
 	
@@ -211,7 +220,7 @@ server <- function(input, output, session) {
 				
 				# if user input values exceeds constraints specified for nloptr, then set starting values to the constraint values
 				inputs_list <- reactiveValuesToList(input)
-				param_start_tmp <- c(prop_cr = input$prop_cr_start, inputs_list[estim_order]) 
+				param_start_tmp <- inputs_list[estim_order] 
 				param_start_tmp["ph0_mix"] <- ph0_angle
 				param_start_tmp <- param_start_tmp %>%
 				  keep(~!is.null(.x)) %>% 
@@ -281,7 +290,7 @@ server <- function(input, output, session) {
 				vals <- tmp_list[param_defaults_names] %>% purrr::keep(~ !is.null(.x)) %>%  unlist()
 				next_row[names(vals)] <- vals
 				ms <- model_fit()$solution
-				next_row[c("id", "rmse", "prop_cr")] <- c(track_inputs_rv$count_rows, ms["rmse"], ms["prop_cr"])
+				next_row[c("id", "rmse", "prop_cr", "prop_cr_start")] <- c(track_inputs_rv$count_rows, ms["rmse"], ms["prop_cr"], input$prop_cr)
 				
 				if (fit_bn_rv$M == 1 & fit_bn_rv$A == 0) {
 				  next_row[c("fit_type", "optim_algorithm")] <- c("manual", "")
