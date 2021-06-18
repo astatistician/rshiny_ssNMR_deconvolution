@@ -235,7 +235,7 @@ server <- function(input, output, session) {
 	
 	# reset all input parameters to zero
 	observeEvent(input$reset_bn, {
-				lapply(as.list(proc_param_names), function(x) update_n_input_single(x, 0))
+				lapply(as.list(proc_param_names[proc_param_names != "pivot_point"]), function(x) update_n_input_single(x, 0))
 			}, label = "reset all user inputs to zero")
 	
 	# write the estimated parameters to a csv file
