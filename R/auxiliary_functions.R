@@ -236,7 +236,11 @@ ph1_pred <- function(x, int, slope, pivot_point, n, ppm) {
   # therefore take the closest point
   pivot_point_i <- which.min(abs(pivot_point-ppm))
   slope / n * x + int - slope * pivot_point_i / n}
+
+#' @export
 ppm_shift <- function(x, y, delta) approx(x = x, y = y, xout = x + delta)$y
+
+#' @export
 norm <- function(x) Re(x) / sum(Re(x), na.rm = TRUE)
 
 
