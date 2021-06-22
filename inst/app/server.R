@@ -1,5 +1,5 @@
 ## Useful link for I/O server/client: https://ryouready.wordpress.com/2013/11/20/sending-data-from-client-to-server-and-back-using-shiny/
-
+reactiveConsole(TRUE)
 server <- function(input, output, session) {
 	
 	options(shiny.reactlog = TRUE)
@@ -10,9 +10,10 @@ server <- function(input, output, session) {
 	legend_states <- list(TRUE, "legendonly")
 	
 # create a data frame (empty for the time being) for storing the estimated parameters
-	proc_param_names <- c("ppm_amo", "ppm_mix", "ph0_mix", "pivot_point", "ph1_mix",
-			"add_zeroes", "lb_global", "lb_cr")
-	tmp_names <- c(c("id", "path_amo", "path_cr", "path_mix", "optim_algorithm", "type", "approve_fit", "comment", "rmse", "prop"), proc_param_names)
+	proc_param_names <- c("ppm_amo", "ppm_mix", "ph0_mix", "ph1_mix", "add_zeroes", "lb_global", "lb_cr")
+	tmp <- proc_param_names[proc_param_names %in% c("ppm_amo", "ppm_mix", "ph0_mix", "ph1_mix")]
+ 	constraint_names <- paste("constr", c("prop_start_val", paste(rep(tmp, each = 2), c("lb", "ub"), sep = "_")), sep = "_")
+	tmp_names <- c(c("id", "path_amo", "path_cr", "path_mix", "optim_algorithm", "type", "approve_fit", "comment", "rmse", "prop"), proc_param_names, constraint_names)
 	saved_params <- matrix(ncol = length(tmp_names), nrow = 0); colnames(saved_params) <- tmp_names
 	
 	update_n_input_single <- function(id, value) updateNumericInput(session, inputId = id, value = value)
@@ -112,7 +113,7 @@ server <- function(input, output, session) {
 					amo <- zero_fill_apod(amo, spec_size, input$lb_global, info[2])
 					cr <- zero_fill_apod(cr, spec_size, input$lb_global, info[2])
 					mix <- zero_fill_apod(mix, spec_size, input$lb_global, info[2])
-				}
+				} 
 				
 				# additional line broadening of the crystalline template
 				if (input$lb_cr > 0) {
@@ -248,10 +249,10 @@ server <- function(input, output, session) {
 	observeEvent(c(input$manual_fit_bn, input$automated_fit_bn), {
 				track_inputs_rv$count_rows <- track_inputs_rv$count_rows+1
 				if (fit_bn_rv$M == 1 & fit_bn_rv$A == 0) {
-					next_row <- c(track_inputs_rv$count_rows, input$path_amo, input$path_cr, input$path_mix, "Not applicable", "manual", "not approved", "NA", model_fit()$solution['rmse'], model_fit()$solution['prop'], input$ppm_amo, input$ppm_mix, input$ph0_mix, input$pivot_point, input$ph1_mix, input$add_zeroes, input$lb_global, input$lb_cr)
+					next_row <- c(track_inputs_rv$count_rows, input$path_amo, input$path_cr, input$path_mix, "Not applicable", "manual", "not approved", "NA", model_fit()$solution['rmse'], model_fit()$solution['prop'], input$ppm_amo, input$ppm_mix, input$ph0_mix, input$pivot_point, input$ph1_mix, input$add_zeroes, input$lb_global, input$lb_cr, input$p_cr_start, input$lower_ppm_amo, input$upper_ppm_amo, input$lower_ppm_mix, input$upper_ppm_mix, input$lower_ph0, input$upper_ph0, input$lower_ph1, input$upper_ph1)
 				} else if (fit_bn_rv$M == 0 & fit_bn_rv$A == 1) {
 					ms <- model_fit()$solution
-					next_row <- c(track_inputs_rv$count_rows, input$path_amo, input$path_cr, input$path_mix, input$optim_algorithm, "automated", "not approved", "NA", ms['rmse'], ms['prop'], ms['ppm_amo'], ms['ppm_mix'], ms['ph0_mix'], ms['pivot_point'], ms['ph1_mix'], input$add_zeroes, input$lb_global, input$lb_cr)
+					next_row <- c(track_inputs_rv$count_rows, input$path_amo, input$path_cr, input$path_mix, input$optim_algorithm, "automated", "not approved", "NA", ms['rmse'], ms['prop'], ms['ppm_amo'], ms['ppm_mix'], ms['ph0_mix'], ms['pivot_point'], ms['ph1_mix'], input$add_zeroes, input$lb_global, input$lb_cr, input$p_cr_start, input$lower_ppm_amo, input$upper_ppm_amo, input$lower_ppm_mix, input$upper_ppm_mix, input$lower_ph0, input$upper_ph0, input$lower_ph1, input$upper_ph1)
 				}
 				track_inputs_rv$x <- rbind(track_inputs_rv$x, next_row)
 			}, ignoreInit = TRUE, label = "update the underlying estimate tracking file")
