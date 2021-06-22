@@ -218,16 +218,6 @@ zero_fill_apod <- function(x, size, LB, SW_h) {
 }
 
 #' @export 
-apod_only <- function(x, LB, SW_h) {
-  n <- length(x)
-  x <- fft(x, inverse = TRUE) / n
-  tt <- 0:(n - 1)
-  x <- x * exp(-tt * LB * pi / (2 * SW_h))
-  x <- fft(x)
-  return(x)
-}
-
-#' @export 
 ph_corr <- function(x, ph) x * exp(complex(real = 0, imaginary = ph))
 
 #' @export 

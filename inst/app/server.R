@@ -104,7 +104,7 @@ server <- function(input, output, session) {
 				info <- raw_data[[2]]
 				spec_size <- raw_data[[3]]
 				
-				if (input$add_zeroes > 0) {
+				if (input$add_zeroes > 0 || input$lb_global > 0) {
 					swp <- info[2] / info[3]
 					dppm <- swp / (spec_size - 1)
 					ppm <- info[1]
