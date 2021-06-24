@@ -26,19 +26,19 @@ ui <- fluidPage(
 												numericInput("add_zeroes", label = "Number of additional zeroes", value = 0, min = 0, max = +Inf, step = 100),
 												numericInput("lb_global", label = "Global line broadening", value = 0, min = 0, max = +Inf, step = 0.1),
 												numericInput("lb_cr", label = "Line broadening of crystalline spectrum", value = 0, min = 0, max = +Inf, step = 0.1),
-												numericInput("p_cr_start", label = "Starting value for crystalline proportion", value = 0, min = 0, max = 1, step = 0.01),
+												numericInput("prop_cr_start", label = "Starting value for crystalline proportion", value = 0, min = 0, max = 1, step = 0.01),
 												selectInput("optim_algorithm", "Select an optimization algorithm", selected="NLOPT_LN_SBPLX", choices=optim_algorithms_list,  selectize=FALSE),
-												div(style="display:inline-block",numericInput(inputId="lower_ph0", label="Lower PH0 (degrees)", value = 0, min = 0, max = 360, step = 0.01, width = 145)),
-												div(style="display:inline-block",numericInput(inputId="upper_ph0", label="Upper PH0", value = 360, min = 0, max = 360, step = 0.01, width = 145)),
+												div(style="display:inline-block",numericInput(inputId="ph0_mix_lower", label="Lower PH0 (degrees)", value = 0, min = 0, max = 360, step = 0.01, width = 145)),
+												div(style="display:inline-block",numericInput(inputId="ph0_mix_upper", label="Upper PH0", value = 360, min = 0, max = 360, step = 0.01, width = 145)),
 												br(),
-												div(style="display:inline-block",numericInput(inputId="lower_ph1", label="Lower PH1 (degrees)", value = 0, min = 0, max = 360, step = 0.01, width = 145)),
-												div(style="display:inline-block",numericInput(inputId="upper_ph1", label="Upper PH1", value = 360, min = 0, max = 360, step = 0.01, width = 145)),
+												div(style="display:inline-block",numericInput(inputId="ph1_mix_lower", label="Lower PH1 (degrees)", value = 0, min = 0, max = 360, step = 0.01, width = 145)),
+												div(style="display:inline-block",numericInput(inputId="ph1_mix_upper", label="Upper PH1", value = 360, min = 0, max = 360, step = 0.01, width = 145)),
 												br(),
-												div(style="display:inline-block",numericInput(inputId="lower_ppm_amo", label="Lower ppm shift amorphous", value = -1, min = -50, max = 50, step = 0.01, width = 145)),
-												div(style="display:inline-block",numericInput(inputId="upper_ppm_amo", label="Upper ppm shift amorphous", value = 1, min = -50, max = 50, step = 0.01, width = 145)),
+												div(style="display:inline-block",numericInput(inputId="ppm_amo_lower", label="Lower ppm shift amorphous", value = -1, min = -50, max = 50, step = 0.01, width = 145)),
+												div(style="display:inline-block",numericInput(inputId="ppm_amo_upper", label="Upper ppm shift amorphous", value = 1, min = -50, max = 50, step = 0.01, width = 145)),
 												br(),
-												div(style="display:inline-block",numericInput(inputId="lower_ppm_mix", label="Lower ppm shift mixture", value = -1, min = -50, max = 50, step = 0.01, width = 145)),
-												div(style="display:inline-block",numericInput(inputId="upper_ppm_mix", label="Upper ppm shift mixture", value = 1, min = -50, max = 50, step = 0.01, width = 145))
+												div(style="display:inline-block",numericInput(inputId="ppm_mix_lower", label="Lower ppm shift mixture", value = -1, min = -50, max = 50, step = 0.01, width = 145)),
+												div(style="display:inline-block",numericInput(inputId="ppm_mix_upper", label="Upper ppm shift mixture", value = 1, min = -50, max = 50, step = 0.01, width = 145))
 										)
 								)
 						),

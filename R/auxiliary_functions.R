@@ -241,29 +241,34 @@ trim_values <- function(x, limits){
 }
 
 #' @export 
-obj_fun <- function(x, ppm, amo, cr, mix, pivot_point, mode = "objective") {
+obj_fun <- function(x, x_order, ppm, amo, cr, mix, pivot_point, mode = "objective") {
   n_points <- length(mix)
   int_seq <- 1:n_points
-
-  x_amo <- ppm_shift(x = ppm, y = Re(amo), delta = x[4])
+  
+  # create an index vector that correctly binds optimization parameter names and their positions
+  ind <- purrr::map_dbl(c(prop_cr = "prop_cr", ph0_mix = "ph0_mix", ph1_mix = "ph1_mix", 
+                        ppm_amo = "ppm_amo", ppm_mix = "ppm_mix"), 
+                      ~ match(.x, x_order)) 
+                    
+  x_amo <- ppm_shift(x = ppm, y = Re(amo), delta = x[ind["ppm_amo"]])
   x_amo <- norm(x_amo)
 
   x_cryst <- norm(cr)
 
-  lin_pred <- ph1_pred(x = int_seq, int = x[2], slope = x[3], pivot_point = pivot_point, n = n_points, ppm=ppm)
+  lin_pred <- ph1_pred(x = int_seq, int = x[ind["ph0_mix"]], slope = x[ind["ph1_mix"]], pivot_point = pivot_point, n = n_points, ppm=ppm)
   y_mix <- ph_corr(mix, lin_pred)
-  y_mix <- ppm_shift(x = ppm, y = Re(y_mix), delta = x[5])
+  y_mix <- ppm_shift(x = ppm, y = Re(y_mix), delta = x[ind["ppm_mix"]])
   y_mix <- norm(y_mix)
-  fitted <- x[1] * x_cryst + (1 - x[1]) * x_amo
+  fitted <- x[ind["prop_cr"]] * x_cryst + (1 - x[ind["prop_cr"]]) * x_amo
   residuals <- y_mix - fitted
   # if mode = "objective" then return RSS (used in nloptr); else return input data + fitted values + residuals
   if (mode!="objective"){
     return(data.frame(ppm = ppm, amo = x_amo, cr = x_cryst, mix = y_mix, fitted = fitted, residuals = residuals))
-  } else return(sum((y_mix - (x[1] * x_cryst + (1 - x[1]) * x_amo))^2, na.rm = TRUE))
+  } else return(sum((y_mix - (x[ind["prop_cr"]] * x_cryst + (1 - x[ind["prop_cr"]]) * x_amo))^2, na.rm = TRUE))
 }
 
 #' @export 
-nloptr_wrapper <- function(data, obj_fun, param_start, param_constraints, optim_algorithm, pivot_point) {
+nloptr_wrapper <- function(data, x_order, obj_fun, param_start, param_constraints, optim_algorithm, pivot_point) {
   results <- nloptr::nloptr(
     x0 = param_start,
     eval_f = obj_fun,
@@ -276,6 +281,7 @@ nloptr_wrapper <- function(data, obj_fun, param_start, param_constraints, optim_
       "maxeval" = 2000,
       print_level = 3
     ),
+    x_order = x_order,
     amo = data$amo,
     mix = data$mix,
     cr = data$cr,
@@ -284,10 +290,10 @@ nloptr_wrapper <- function(data, obj_fun, param_start, param_constraints, optim_
     mode = "objective"
   )
 
-  dat <- obj_fun(x = results$solution, ppm = data$ppm, amo = data$amo, cr = data$cr, mix = data$mix, pivot_point = pivot_point, mode="prediction")
+  dat <- obj_fun(x = results$solution, x_order = x_order, ppm = data$ppm, amo = data$amo, cr = data$cr, mix = data$mix, pivot_point = pivot_point, mode="prediction")
   dat <- dat[complete.cases(dat), ]
   solution <- c(
-    prop = results$solution[1], rmse = sqrt(results$objective/length(data$mix)), ph0_mix = results$solution[2] * to_deg_const,
+    prop_cr = results$solution[1], rmse = sqrt(results$objective/length(data$mix)), ph0_mix = results$solution[2] * to_deg_const,
     ph1_mix = results$solution[3] * to_deg_const, ppm_amo = results$solution[4], ppm_mix = results$solution[5], pivot_point = pivot_point
   )
   return(list(dat = dat, solution = solution))
@@ -295,8 +301,8 @@ nloptr_wrapper <- function(data, obj_fun, param_start, param_constraints, optim_
 
 #' @export 
 plot_model_fit <- function(model_fit) {
-  p <- plot_ly(x = ~ model_fit$dat$ppm, y = ~ (1 - model_fit$solution["prop"]) * model_fit$dat$amo, type = "scatter", mode = "lines", name = "0% crystal reference", line = list(width = 2, color = "black"), source = "p1") %>%
-    add_trace(x = ~ model_fit$dat$ppm, y = ~ model_fit$solution["prop"] * model_fit$dat$cr, name = "100% crystal reference", mode = "lines", line = list(color = "green")) %>%
+  p <- plot_ly(x = ~ model_fit$dat$ppm, y = ~ (1 - model_fit$solution["prop_cr"]) * model_fit$dat$amo, type = "scatter", mode = "lines", name = "0% crystal reference", line = list(width = 2, color = "black"), source = "p1") %>%
+    add_trace(x = ~ model_fit$dat$ppm, y = ~ model_fit$solution["prop_cr"] * model_fit$dat$cr, name = "100% crystal reference", mode = "lines", line = list(color = "green")) %>%
     add_trace(x = ~ model_fit$dat$ppm, y = ~ model_fit$dat$mix, name = "mixture spectrum", mode = "lines", line = list(color = "4682B4")) %>%
     add_trace(x = ~ model_fit$dat$ppm, y = ~ model_fit$dat$residuals, name = "residuals", mode = "lines", line = list(color = "red")) %>%
     add_trace(x = ~ model_fit$dat$ppm, y = ~ model_fit$dat$fitted, name = "fit", mode = "lines", line = list(color = "orange")) %>%

@@ -1,20 +1,46 @@
 ## Useful link for I/O server/client: https://ryouready.wordpress.com/2013/11/20/sending-data-from-client-to-server-and-back-using-shiny/
-reactiveConsole(TRUE)
+
 server <- function(input, output, session) {
 	
 	options(shiny.reactlog = TRUE)
 	
 	
 ##### Local variable & function definitions:
-	
 	legend_states <- list(TRUE, "legendonly")
+	param_defaults <- list(
+	path_amo = "",	
+	path_cr = "",	
+	path_mix = "",	
+	optim_algorithm = "NLOPT_LN_SBPLX",	
+	fit_type = "",	
+	approve_fit = "not approved",
+	comment = "NA",	
+	rmse = NA,
+	prop_cr =	0,
+	ph0_mix	= 0,
+	ph1_mix	= 0,
+	ppm_amo = 0,	
+	ppm_mix	= 0,
+	pivot_point = NA,	
+	add_zeroes = 0,	
+	lb_global = 0,	
+	lb_cr	= 0,
+	prop_cr_start =	0,
+	ppm_amo_lower	= -1,
+	ppm_amo_upper	= 1,
+	ppm_mix_lower	= -1,
+	ppm_mix_upper	= 1,
+	ph0_mix_lower	= 0,
+	ph0_mix_upper	= 360,
+	ph1_mix_lower	= 0,
+	ph1_mix_upper= 360)
 	
 # create a data frame (empty for the time being) for storing the estimated parameters
-	proc_param_names <- c("ppm_amo", "ppm_mix", "ph0_mix", "ph1_mix", "add_zeroes", "lb_global", "lb_cr")
-	tmp <- proc_param_names[proc_param_names %in% c("ppm_amo", "ppm_mix", "ph0_mix", "ph1_mix")]
- 	constraint_names <- paste("constr", c("prop_start_val", paste(rep(tmp, each = 2), c("lb", "ub"), sep = "_")), sep = "_")
-	tmp_names <- c(c("id", "path_amo", "path_cr", "path_mix", "optim_algorithm", "type", "approve_fit", "comment", "rmse", "prop"), proc_param_names, constraint_names)
-	saved_params <- matrix(ncol = length(tmp_names), nrow = 0); colnames(saved_params) <- tmp_names
+	param_defaults_names <- names(param_defaults)
+	preproc_param_names <- param_defaults_names[param_defaults_names %in% c("ppm_amo", "ppm_mix", "ph0_mix", "ph1_mix")]
+	adv_param_names <- param_defaults_names[param_defaults_names %in% c("add_zeroes", "lb_global", "lb_cr", "prop_cr_start",  "optim_algorithm", "ppm_amo_lower", "ppm_amo_upper", "ppm_mix_lower" ,"ppm_mix_upper", "ph0_mix_lower", "ph0_mix_upper", "ph1_mix_lower", "ph1_mix_upper")] 
+	tmp_names <- names(param_defaults)
+	saved_params <- matrix(ncol = length(tmp_names) + 1, nrow = 0); colnames(saved_params) <- c("id", tmp_names)
 	
 	update_n_input_single <- function(id, value) updateNumericInput(session, inputId = id, value = value)
 	
@@ -25,7 +51,6 @@ server <- function(input, output, session) {
 				})
 	}
 #####
-	
 	
 	# load a xlsx file with paths to spectra; these paths will be accessible for choosing 
 	# in the path_amo, path_cr, path_mix input fields
@@ -50,11 +75,16 @@ server <- function(input, output, session) {
 	
 	# load parameter constraints for nloptr
 	param_constraints <- reactive({
-				lowerVals <- c(input$lower_ph0*to_rad_const, input$lower_ph1*to_rad_const, input$lower_ppm_amo, input$lower_ppm_mix)
-				upperVals <- c(input$upper_ph0*to_rad_const, input$upper_ph1*to_rad_const, input$upper_ppm_amo, input$upper_ppm_mix)
-				varNames <- c("ph0_mix", "ph1_mix", "ppm_amo", "ppm_mix")
+	      tmp_input <- reactiveValuesToList(input)
+	      tmp_ind <- stri_detect(adv_param_names, fixed = "lower")
+	      lowerVals <- unlist( tmp_input[adv_param_names[tmp_ind]] ) * ifelse(stri_detect(adv_param_names[tmp_ind], fixed = "ph"), to_rad_const, 1)
+	      tmp_ind <- stri_detect(adv_param_names, fixed = "upper")
+	      upperVals <- unlist( tmp_input[adv_param_names[tmp_ind]] ) * ifelse(stri_detect(adv_param_names[tmp_ind], fixed = "ph"), to_rad_const, 1)
+				varNames <- stri_replace_all_fixed(names(lowerVals), "_lower", "")
 				dat <- tibble::tibble(name = varNames, lb = lowerVals, ub = upperVals)
-				dat <- rbind(c(NA, 0,1), dat); dat[1,1] <- "p_cryst"
+				dat <- rbind(c(NA, 0,1), dat); dat[1,1] <- "prop_cr"
+				# make sure that constraints are in correct order
+				dat <- dat[match(dat$name, estim_order), ]
 				return(dat)      
 			}, label = "load the user's parameter constraints for nloptr")
 	
@@ -172,7 +202,7 @@ server <- function(input, output, session) {
 				mat_cryst <- cbind(cr_mod)
 				nnls_fit <- nnls::nnls(mat_cryst, mix_mod)
 				dat <- cbind(model_input, fitted = nnls_fit$fitted + model_input$amo, residuals = nnls_fit$residuals)
-				solution <- c(prop = nnls_fit$x, rmse = sqrt(nnls_fit$deviance/nrow(nnls_fit$residuals)))
+				solution <- c(prop_cr = nnls_fit$x, rmse = sqrt(nnls_fit$deviance/nrow(nnls_fit$residuals)))
 				return(list(dat = dat, solution = solution))
 			}, label = "do manual fitting")
 	
@@ -203,18 +233,30 @@ server <- function(input, output, session) {
 				model_input <- data.frame(ppm = ppm, amo = amo, cr = cr, mix = mix)
 				na_ind <- is.na(model_input$amo) | is.na(model_input$mix)
 				model_input <- model_input[!na_ind, ]
+				
 				param_constraints_tmp <- param_constraints()
-				mod <- nloptr_wrapper(model_input
-						, obj_fun
-						# if user input values exceeds constraints specified for nloptr, then set starting values to the constraint values
-						, param_start = c(trim_values(input$p_cr_start, as.numeric(param_constraints_tmp[param_constraints_tmp$name=="p_cryst", -1]))
-								, trim_values(ph0_angle * to_rad_const, as.numeric(param_constraints_tmp[param_constraints_tmp$name=="ph0_mix", -1]))
-								, trim_values(input$ph1_mix * to_rad_const, as.numeric(param_constraints_tmp[param_constraints_tmp$name=="ph1_mix", -1]))
-								, trim_values(input$ppm_amo, as.numeric(param_constraints_tmp[param_constraints_tmp$name=="ppm_amo", -1]))
-								, trim_values(input$ppm_mix, as.numeric(param_constraints_tmp[param_constraints_tmp$name=="ppm_mix", -1])))
+				
+				# if user input values exceeds constraints specified for nloptr, then set starting values to the constraint values
+				inputs_list <- reactiveValuesToList(input)
+				param_start_tmp <- c(prop_cr = input$prop_cr_start, inputs_list[estim_order]) %>% 
+				  keep(~!is.null(.x)) %>% 
+				  data.frame() %>% 
+				  pivot_longer(cols = everything(), names_to = "name", values_to = "start") %>% 
+				  inner_join(param_constraints_tmp, by= "name") %>%
+				  apply(1, function(x) {
+				    x <- as.numeric(x[-1])
+				    trim_values(x[1], x[2:3])
+				    }
+				  )
+				
+				mod <- nloptr_wrapper(
+				      model_input
+				    , x_order = estim_order
+						, obj_fun = obj_fun
+						, param_start = param_start_tmp
 						, param_constraints = param_constraints_tmp
-						, optim_algorithm=input$optim_algorithm
-						, pivot_point=input$pivot_point)
+						, optim_algorithm = input$optim_algorithm
+						, pivot_point = input$pivot_point)
 				return(mod)
 			}, label = "do automated fitting")
 	
@@ -231,13 +273,16 @@ server <- function(input, output, session) {
 	## operations on the user inputs
 	# after the automated fitting procedure, update the corresponding pre-processing inputs
 	observeEvent(input$automated_fit_bn, {
-				update_n_input_multi(c("ph0_mix", "ph1_mix", "ppm_amo", "ppm_mix", "pivot_point"), model_fit()$solution)
+				update_n_input_multi(preproc_param_names, model_fit()$solution)
 			}, label = "update user inputs with nloptr estimates")
 	
-	# reset all input parameters to zero
+	# reset all input parameters to their default values
 	observeEvent(input$reset_bn, {
-				lapply(as.list(proc_param_names[proc_param_names != "pivot_point"]), function(x) update_n_input_single(x, 0))
-			}, label = "reset all user inputs to zero")
+				#lapply(as.list(proc_param_names[proc_param_names != "pivot_point"]), function(x) update_n_input_single(x, 0))
+	       tmp_name <- c(preproc_param_names, adv_param_names[adv_param_names != "optim_algorithm"])
+	       update_n_input_multi(tmp_name, unlist(param_defaults[tmp_name]))
+	       updateTextInput(session, inputId = "optim_algorithm", value = param_defaults[["optim_algorithm"]])
+			}, label = "reset all user inputs to the default values")
 	
 	# write the estimated parameters to a csv file
 	track_inputs_rv <- reactiveValues(x = saved_params, count_rows=0)
@@ -246,13 +291,23 @@ server <- function(input, output, session) {
 				track_inputs_rv$count_rows <- 0
 			}, label = "reset row counts to zero after changing a spectrum")
 	
+	# each time manual or automated fitting buton is pressed, update the underlying estimate tracking file
 	observeEvent(c(input$manual_fit_bn, input$automated_fit_bn), {
 				track_inputs_rv$count_rows <- track_inputs_rv$count_rows+1
+				tmp_list <- reactiveValuesToList(input)
+				next_row <- character(length(param_defaults) + 1); names(next_row) <- c("id", param_defaults_names)
+				
+				next_row[param_defaults_names] <- unlist(param_defaults)
+				vals <- tmp_list[param_defaults_names] %>% purrr::keep(~ !is.null(.x)) %>%  unlist()
+				next_row[names(vals)] <- vals
+				ms <- model_fit()$solution
+				next_row[c("id", "rmse", "prop_cr")] <- c(track_inputs_rv$count_rows, ms["rmse"], ms["prop_cr"])
+				
 				if (fit_bn_rv$M == 1 & fit_bn_rv$A == 0) {
-					next_row <- c(track_inputs_rv$count_rows, input$path_amo, input$path_cr, input$path_mix, "Not applicable", "manual", "not approved", "NA", model_fit()$solution['rmse'], model_fit()$solution['prop'], input$ppm_amo, input$ppm_mix, input$ph0_mix, input$pivot_point, input$ph1_mix, input$add_zeroes, input$lb_global, input$lb_cr, input$p_cr_start, input$lower_ppm_amo, input$upper_ppm_amo, input$lower_ppm_mix, input$upper_ppm_mix, input$lower_ph0, input$upper_ph0, input$lower_ph1, input$upper_ph1)
+				  next_row[c("fit_type", "optim_algorithm")] <- c("manual", "NA")
 				} else if (fit_bn_rv$M == 0 & fit_bn_rv$A == 1) {
 					ms <- model_fit()$solution
-					next_row <- c(track_inputs_rv$count_rows, input$path_amo, input$path_cr, input$path_mix, input$optim_algorithm, "automated", "not approved", "NA", ms['rmse'], ms['prop'], ms['ppm_amo'], ms['ppm_mix'], ms['ph0_mix'], ms['pivot_point'], ms['ph1_mix'], input$add_zeroes, input$lb_global, input$lb_cr, input$p_cr_start, input$lower_ppm_amo, input$upper_ppm_amo, input$lower_ppm_mix, input$upper_ppm_mix, input$lower_ph0, input$upper_ph0, input$lower_ph1, input$upper_ph1)
+					next_row[c("fit_type", preproc_param_names)] <- c("auto", ms[preproc_param_names])
 				}
 				track_inputs_rv$x <- rbind(track_inputs_rv$x, next_row)
 			}, ignoreInit = TRUE, label = "update the underlying estimate tracking file")
@@ -261,7 +316,8 @@ server <- function(input, output, session) {
 	observeEvent(input$undo_bn, {
 				# this condition ensures that at least two records are in the results file
 				if ((fit_bn_rv$M.counter+fit_bn_rv$A.counter)>=2) {
-					update_n_input_multi(proc_param_names, track_inputs_rv$x[nrow(track_inputs_rv$x)-1,])
+					update_n_input_multi(c(preproc_param_names, adv_param_names[adv_param_names != "optim_algorithm"]),
+					                     track_inputs_rv$x[nrow(track_inputs_rv$x)-1,])
 				} else{
 					showNotification("No previous model fit available", type = "warning")
 				}
@@ -323,7 +379,7 @@ server <- function(input, output, session) {
 	output$fit_stats_out <- renderText({
 				req(model_fit())
 				paste0(
-						"Estimated crystalline proportion (%): ", round(100 * model_fit()$solution["prop"], 7),
+						"Estimated crystalline proportion (%): ", round(100 * model_fit()$solution["prop_cr"], 7),
 						"\nrmse (x10^6):", round(10^6 * model_fit()$solution["rmse"], 7),
 						"\nInitial spectrum size:", isolate(raw_data()[[2]][length(raw_data()[[2]])]),
 						"\nFinal spectrum size:", isolate(raw_data()[[2]][length(raw_data()[[2]])] + input$add_zeroes)
@@ -347,7 +403,10 @@ server <- function(input, output, session) {
 				updateSelectInput(session, "path_amo", choices = dat[["path_amo"]])
 				updateSelectInput(session, "path_cr", choices = dat[["path_cr"]])
 				updateSelectInput(session, "path_mix", choices = dat[["path_mix"]])
-				update_n_input_multi(c("ppm_amo", "ppm_mix", "ph0_mix", "pivot_point", "ph1_mix", "add_zeroes", "lb_global", "lb_cr"), dat)
+				#update_n_input_multi(c("ppm_amo", "ppm_mix", "ph0_mix", "pivot_point", "ph1_mix", "add_zeroes", "lb_global", "lb_cr"), dat)
+				param_selected <- c(preproc_param_names, adv_param_names[adv_param_names != "optim_algorithm"])
+				update_n_input_multi(param_selected, dat[param_selected])
+				updateTextInput(session, inputId = "optim_algorithm", value = dat["optim_algorithm"])
 			}, label = "load in estimated results")
 }
 
