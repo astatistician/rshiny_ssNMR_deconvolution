@@ -331,6 +331,7 @@ server <- function(input, output, session) {
 	observeEvent(input$save_user_comments_bn, {
 				track_inputs_rv$x[nrow(track_inputs_rv$x), "comment"] <- input$user_comments
 				showNotification("The comment has been saved", type = "message", duration = 2)
+				updateTextAreaInput(session, inputId = "user_comments", value = "")
 			})
 	##
 	
