@@ -398,7 +398,15 @@ server <- function(input, output, session) {
 	observeEvent(input$file_load_bn, {
 				req(input$file_load_bn)
 				inFile <- input$file_load_bn
-				tmp <- read.csv(inFile$datapath)
+				tmp <- read.csv(inFile$datapath, stringsAsFactors = FALSE)
+				
+				# Since only the last row will be loaded in, the user has to manually remove other records.
+				# The removal can be done in several ways: Delete, Backspace button on entire rows or selected cells.
+				# As a consequence, sometimes the removed rows may still be loaded in, but they will contain NA values (of different types).
+				# Heuristic: in such case remove rows with "empty" id, path_amo, path_cr, path_mix columns.
+				var_check <- c("id", "path_amo", "path_cr", "path_mix")
+				complete_cases_ind <- !apply(tmp, 1, function(x) all(is.na(x[var_check]) | x[var_check] == "" ))
+				tmp <- tmp[complete_cases_ind,]
 				dat <- tmp[nrow(tmp),]
 				updateSelectInput(session, "path_amo", choices = dat[["path_amo"]])
 				updateSelectInput(session, "path_cr", choices = dat[["path_cr"]])
