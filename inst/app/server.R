@@ -147,7 +147,7 @@ server <- function(input, output, session) {
 				
 				# additional line broadening of the crystalline template
 				if (input$lb_cr > 0) {
-					cr <- apod_only(cr, input$lb_cr, info[2])
+					cr <- zero_fill_apod(cr, spec_size, input$lb_cr, info[2])
 				}
 				
 				return(list(data.frame(ppm = ppm, amo = amo, cr = cr, mix = mix), info, spec_size))
