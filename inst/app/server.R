@@ -355,26 +355,27 @@ server <- function(input, output, session) {
 				updateNumericInput(session, inputId = "pivot_point", value = plot_click()$x)
 			})
 	
+	plot_object <- eventReactive(c(input$manual_fit_bn, input$automated_fit_bn), {
+	  req(model_fit())
+	  p <- plot_model_fit(model_fit())
+	  # the output of plotly_relayout changes depending on the action: if you zoom in
+	  # xaxis.range[0], xaxis.range[1], yaxis.range[0],	yaxis.range[1] values will be available
+	  # if you don't zoom in, the output will be NULL or other some other named vectors of length different than 4
+	  if (is.null(zoom()) | length(zoom()) != 4) {
+	    p <- layout(p, xaxis = list(zeroline = FALSE, autorange = "reversed", title = "ppm"), yaxis = list(title = "intensity"))
+	  } else {
+	    p <- layout(p, xaxis = list(zeroline = FALSE, range = c(zoom()$"xaxis.range[0]", zoom()$"xaxis.range[1]"), title = "ppm"), yaxis = list(title = "intensity", range = c(zoom()$"yaxis.range[0]", zoom()$"yaxis.range[1]")))
+	  }
+	  p <- plotly_build(p)
+	  for (i in seq_along(p$x$data)) {
+	    p$x$data[[i]]$visible <- legend_items[[p$x$data[[i]]$name]]
+	  }
+	  return(p)
+	}, label = "call plot function and modify legend and axis range")
 	
 	output$fit_plot_out <- renderPlotly({
-				req(model_fit())
-				p <- plot_model_fit(model_fit())
-				# the output of plotly_relayout changes depending on the action: if you zoom in
-				# xaxis.range[0], xaxis.range[1], yaxis.range[0],	yaxis.range[1] values will be available
-				# if you don't zoom in, the output will be NULL or other some other named vectors of length different than 4
-				if (is.null(zoom()) | length(zoom()) != 4) {
-					p <- layout(p, xaxis = list(zeroline = FALSE, autorange = "reversed", title = "ppm"), yaxis = list(title = "intensity"))
-				} else {
-					p <- layout(p, xaxis = list(zeroline = FALSE, range = c(zoom()$"xaxis.range[0]", zoom()$"xaxis.range[1]"), title = "ppm"), yaxis = list(title = "intensity", range = c(zoom()$"yaxis.range[0]", zoom()$"yaxis.range[1]")))
-				}
-				p <- plotly_build(p)
-				for (i in seq_along(p$x$data)) {
-					p$x$data[[i]]$visible <- legend_items[[p$x$data[[i]]$name]]
-				}
-				
-				return(p)
+	  plot_object()
 			})
-	
 	
 	output$fit_stats_out <- renderText({
 				req(model_fit())
