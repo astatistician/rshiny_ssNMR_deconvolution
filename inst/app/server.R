@@ -281,6 +281,8 @@ server <- function(input, output, session) {
 				#lapply(as.list(proc_param_names[proc_param_names != "pivot_point"]), function(x) update_n_input_single(x, 0))
 	       tmp_name <- c(preproc_param_names, adv_param_names[adv_param_names != "optim_algorithm"])
 	       update_n_input_multi(tmp_name, unlist(param_defaults[tmp_name]))
+	       raw_data_tmp <- raw_data()
+	       updateNumericInput(session, inputId = "pivot_point", value = raw_data_tmp[[1]]$ppm[which.max(abs(Re(raw_data_tmp[[1]]$mix)))])
 	       updateTextInput(session, inputId = "optim_algorithm", value = param_defaults[["optim_algorithm"]])
 			}, label = "reset all user inputs to the default values")
 	
