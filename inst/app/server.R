@@ -13,8 +13,8 @@ server <- function(input, output, session) {
 	path_mix = "",	
 	optim_algorithm = "NLOPT_LN_SBPLX",	
 	fit_type = "",	
-	approve_fit = "not approved",
-	comment = "NA",	
+	approve_fit = "",
+	comment = "",	
 	rmse = NA,
 	prop_cr =	0,
 	ph0_mix	= 0,
@@ -306,7 +306,7 @@ server <- function(input, output, session) {
 				next_row[c("id", "rmse", "prop_cr")] <- c(track_inputs_rv$count_rows, ms["rmse"], ms["prop_cr"])
 				
 				if (fit_bn_rv$M == 1 & fit_bn_rv$A == 0) {
-				  next_row[c("fit_type", "optim_algorithm")] <- c("manual", "NA")
+				  next_row[c("fit_type", "optim_algorithm")] <- c("manual", "")
 				} else if (fit_bn_rv$M == 0 & fit_bn_rv$A == 1) {
 					ms <- model_fit()$solution
 					next_row[c("fit_type", preproc_param_names)] <- c("auto", ms[preproc_param_names])
