@@ -236,7 +236,7 @@ norm <- function(x) Re(x) / sum(Re(x), na.rm = TRUE)
 
 #' @export 
 trim_values <- function(x, limits){
-  if (x>=limits[2]) x <- min(c(x, limits[2])) else if (x<=limits[1]) x <- max(c(x, limits[1]))
+  if (x>=limits[2]) x <- limits[2] else if (x<=limits[1]) x <- limits[1]
   return(x)
 }
 

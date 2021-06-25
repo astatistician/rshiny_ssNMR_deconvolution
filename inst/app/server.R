@@ -211,23 +211,27 @@ server <- function(input, output, session) {
 				
 				# if user input values exceeds constraints specified for nloptr, then set starting values to the constraint values
 				inputs_list <- reactiveValuesToList(input)
-				param_start_tmp <- c(prop_cr = input$prop_cr_start, inputs_list[estim_order]) %>% 
+				param_start_tmp <- c(prop_cr = input$prop_cr_start, inputs_list[estim_order]) 
+				param_start_tmp["ph0_mix"] <- ph0_angle
+				param_start_tmp <- param_start_tmp %>%
 				  keep(~!is.null(.x)) %>% 
 				  data.frame() %>% 
 				  pivot_longer(cols = everything(), names_to = "name", values_to = "start") %>% 
-				  inner_join(param_constraints_tmp, by= "name") %>%
+				  inner_join(as.data.frame(param_constraints_tmp), by= "name") %>%
+				  mutate(multi_fac = ifelse(stri_detect(name, fixed = "ph"), to_rad_const, 1),
+				         start = start * multi_fac) %>%
+				  select(-c(name, multi_fac)) %>% 
+				  as.matrix() %>%
 				  apply(1, function(x) {
-				    x <- as.numeric(x[-1])
-				    trim_values(x[1], x[2:3])
-				    }
-				  )
+				    trim_values(x[1], x[-1])
+				  })
 				
 				mod <- nloptr_wrapper(
 				      model_input
 				    , x_order = estim_order
 						, obj_fun = obj_fun
 						, param_start = param_start_tmp
-						, param_constraints = param_constraints_tmp
+						, param_constraints = as.data.frame(param_constraints_tmp)
 						, optim_algorithm = input$optim_algorithm
 						, pivot_point = input$pivot_point)
 				return(mod)
@@ -400,7 +404,6 @@ server <- function(input, output, session) {
 				updateSelectInput(session, "path_amo", choices = dat[["path_amo"]])
 				updateSelectInput(session, "path_cr", choices = dat[["path_cr"]])
 				updateSelectInput(session, "path_mix", choices = dat[["path_mix"]])
-				#update_n_input_multi(c("ppm_amo", "ppm_mix", "ph0_mix", "pivot_point", "ph1_mix", "add_zeroes", "lb_global", "lb_cr"), dat)
 				param_selected <- c(preproc_param_names, adv_param_names[adv_param_names != "optim_algorithm"])
 				update_n_input_multi(param_selected, dat[param_selected])
 				updateTextInput(session, inputId = "optim_algorithm", value = dat["optim_algorithm"])
