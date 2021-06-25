@@ -271,6 +271,7 @@ server <- function(input, output, session) {
 			}, label = "assign manual or automated fitting results to an object")
 	
 	## operations on the user inputs
+	
 	# after the automated fitting procedure, update the corresponding pre-processing inputs
 	observeEvent(input$automated_fit_bn, {
 				update_n_input_multi(preproc_param_names, model_fit()$solution)
@@ -338,13 +339,23 @@ server <- function(input, output, session) {
 	##
 	
 	# event for retaining zoom between data recalulcations in plotly graph
-	zoom <- reactive(event_data("plotly_relayout", source = "p1"))
+	zoom <- reactive({
+	  req(model_fit())
+	  event_data("plotly_relayout", source = "p1")
+	  })
 	
 	# event for retaining only selected lines between data recalulcations in plotly graph
-	legend_click <- reactive(event_data("plotly_legendclick", source = "p1"))
+	legend_click <- reactive({
+	  # to avoid warnings (https://github.com/ropensci/plotly/issues/1528)
+	  req(any(unlist(lapply(plot_object()$x$data, function(x) is.null(x$visible)))))
+	  event_data("plotly_legendclick", source = "p1")
+	  })
 	
-	# register clicking event to update Chemical shift (ppm) input value
-	plot_click <- reactive(event_data("plotly_click", source = "p1"))
+	# register clicking event to update pivot point value
+	plot_click <- reactive({
+	  req(model_fit())
+	  event_data("plotly_click", source = "p1")
+	  })
 	
 	# showing/hiding lines by clicking on the legend 
 	legend_items <- reactiveValues("0% crystal reference" = TRUE, "100% crystal reference" = TRUE, "mixture spectrum" = TRUE, "residuals" = TRUE, "fit" = TRUE)
@@ -377,6 +388,7 @@ server <- function(input, output, session) {
 	}, label = "call plot function and modify legend and axis range")
 	
 	output$fit_plot_out <- renderPlotly({
+	  req(plot_object())
 	  plot_object()
 			})
 	
