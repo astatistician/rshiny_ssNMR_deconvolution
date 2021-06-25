@@ -7,33 +7,6 @@ server <- function(input, output, session) {
 	
 ##### Local variable & function definitions:
 	legend_states <- list(TRUE, "legendonly")
-	param_defaults <- list(
-	path_amo = "",	
-	path_cr = "",	
-	path_mix = "",	
-	optim_algorithm = "NLOPT_LN_SBPLX",	
-	fit_type = "",	
-	approve_fit = "",
-	comment = "",	
-	rmse = NA,
-	prop_cr =	0,
-	ph0_mix	= 0,
-	ph1_mix	= 0,
-	ppm_amo = 0,	
-	ppm_mix	= 0,
-	pivot_point = NA,	
-	add_zeroes = 0,	
-	lb_global = 0,	
-	lb_cr	= 0,
-	prop_cr_start =	0,
-	ppm_amo_lower	= -1,
-	ppm_amo_upper	= 1,
-	ppm_mix_lower	= -1,
-	ppm_mix_upper	= 1,
-	ph0_mix_lower	= 0,
-	ph0_mix_upper	= 360,
-	ph1_mix_lower	= 0,
-	ph1_mix_upper= 360)
 	
 # create a data frame (empty for the time being) for storing the estimated parameters
 	param_defaults_names <- names(param_defaults)
