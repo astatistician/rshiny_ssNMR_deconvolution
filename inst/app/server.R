@@ -2,7 +2,7 @@
 
 server <- function(input, output, session) {
 	
-	options(shiny.reactlog = TRUE)
+	#options(shiny.reactlog = TRUE)
 	
 	
 ##### Local variable & function definitions:
@@ -94,7 +94,7 @@ server <- function(input, output, session) {
 				req(tmp, cancelOutput = TRUE)
 				updateNumericInput(session, inputId = "pivot_point", value = 
 								tmp[[1]]$ppm[which.max(abs(Re(tmp[[1]]$mix)))])
-			},ignoreInit = TRUE, label = "update pivot point to the largest peak of mix")
+			}, label = "update pivot point to the largest peak of mix", ignoreInit = TRUE)
 	
 	# process all three spectra at once (i.e. zero filling and apodization)
 	proc_data <- reactive({
@@ -290,7 +290,7 @@ server <- function(input, output, session) {
 					next_row[c("fit_type", preproc_param_names)] <- c("auto", ms[preproc_param_names])
 				}
 				track_inputs_rv$x <- rbind(track_inputs_rv$x, next_row)
-			}, ignoreInit = TRUE, label = "update the underlying estimate tracking file")
+			}, label = "update the underlying estimate tracking file", ignoreInit = TRUE)
 	
 	# restore parameter values from the previous model fitting step
 	observeEvent(input$undo_bn, {
