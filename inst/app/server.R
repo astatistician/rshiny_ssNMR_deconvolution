@@ -381,7 +381,7 @@ server <- function(input, output, session) {
 	output$fit_stats_out <- renderText({
 				req(model_fit())
 				paste0(
-						"Estimated crystalline proportion (%): ", round(100 * model_fit()$solution["prop_cr"], 7),
+						"Estimated crystalline proportion [0-1 interval] ", round(model_fit()$solution["prop_cr"], 7),
 						"\nrmse (x10^6):", round(10^6 * model_fit()$solution["rmse"], 7),
 						"\nInitial spectrum size:", isolate(raw_data()[[2]][length(raw_data()[[2]])]),
 						"\nFinal spectrum size:", isolate(raw_data()[[2]][length(raw_data()[[2]])] + input$add_zeroes)

@@ -17,7 +17,7 @@ ui <- fluidPage(
 								numericInput("ph0_mix", label = "PH0 (degrees) of mixture", value = param_defaults$ph0_mix, min = -180, max = 180, step = 0.01),
 								numericInput("pivot_point", label = "Pivot point (ppm)", value = 0, min = -100000, max = 100000, step = 0.1),
 								numericInput("ph1_mix", label = "PH1 (degrees) of mixture", value = param_defaults$ph1_mix, min = -180, max = 180, step = 0.01),
-								div(style="display:inline-block", numericInput("prop_cr", label = "Crystalline proportion value", value = param_defaults$prop_cr, min = 0, max = 1, step = 0.005)),
+								div(style="display:inline-block", numericInput("prop_cr", label = "Crystalline proportion value [0-1]", value = param_defaults$prop_cr, min = 0, max = 100, step = 0.001)),
 								div(style="display:inline-block", radioButtons("prop_cr_usage", "",
 								             c("estimate" = "estimate",
 								               "explicit" = "explicit"
