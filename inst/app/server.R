@@ -171,14 +171,21 @@ server <- function(input, output, session) {
 				na_ind <- is.na(model_input$amo) | is.na(model_input$mix)
 				model_input <- model_input[!na_ind, ]
 				
+				param_constraints_tmp <- param_constraints() %>% filter(name == "prop_cr")
+				param_start_tmp <- trim_values(input$prop_cr, param_constraints_tmp[, 2:3] %>% as.numeric()) 
+				
 				if (input$prop_cr_usage == "estimate"){
-				  cr_mod <- model_input$cr - model_input$amo
-				  mix_mod <- model_input$mix - model_input$amo
-				  mat_cryst <- cbind(cr_mod)
-				  nnls_fit <- nnls::nnls(mat_cryst, mix_mod)
-				  dat <- cbind(model_input, fitted = nnls_fit$fitted + model_input$amo, residuals = nnls_fit$residuals)
-				  solution <- c(prop_cr = nnls_fit$x, rmse = sqrt(nnls_fit$deviance/nrow(nnls_fit$residuals)))				  
+				  mod <- nloptr_wrapper(
+				    model_input
+				    , x_order = "prop_cr"
+				    , obj_fun = obj_fun
+				    , param_start = param_start_tmp
+				    , param_constraints = as.data.frame(param_constraints_tmp)
+				    , optim_algorithm = input$optim_algorithm
+				    , pivot_point = input$pivot_point)
+				  return(mod)
 				  update_n_input_single("prop_cr", nnls_fit$x)
+				  
 				} else {
 				  fitted <- input$prop_cr * model_input$cr + (1-input$prop_cr) * model_input$amo
 				  residuals <- model_input$mix - fitted

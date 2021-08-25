@@ -249,15 +249,22 @@ obj_fun <- function(x, x_order, ppm, amo, cr, mix, pivot_point, mode = "objectiv
   ind <- purrr::map_dbl(c(prop_cr = "prop_cr", ph0_mix = "ph0_mix", ph1_mix = "ph1_mix", 
                         ppm_amo = "ppm_amo", ppm_mix = "ppm_mix"), 
                       ~ match(.x, x_order)) 
-                    
-  x_amo <- ppm_shift(x = ppm, y = Re(amo), delta = x[ind["ppm_amo"]])
+  x_amo <- Re(amo)
+  if (!is.na(ind["ppm_amo"])) {
+    x_amo <- ppm_shift(x = ppm, y = x_amo, delta = x[ind["ppm_amo"]])
+  }                  
   x_amo <- norm(x_amo)
-
+  
   x_cryst <- norm(cr)
-
-  lin_pred <- ph1_pred(x = int_seq, int = x[ind["ph0_mix"]], slope = x[ind["ph1_mix"]], pivot_point = pivot_point, n = n_points, ppm=ppm)
-  y_mix <- ph_corr(mix, lin_pred)
-  y_mix <- ppm_shift(x = ppm, y = Re(y_mix), delta = x[ind["ppm_mix"]])
+  
+  y_mix <- mix
+  if (all(!is.na(ind[c("ph0_mix", "ph1_mix")]))){
+    lin_pred <- ph1_pred(x = int_seq, int = x[ind["ph0_mix"]], slope = x[ind["ph1_mix"]], pivot_point = pivot_point, n = n_points, ppm=ppm)
+    y_mix <- ph_corr(y_mix, lin_pred)   
+  }
+  if (!is.na(ind["ppm_mix"])) {
+    y_mix <- ppm_shift(x = ppm, y = Re(y_mix), delta = x[ind["ppm_mix"]])
+  }
   y_mix <- norm(y_mix)
   fitted <- x[ind["prop_cr"]] * x_cryst + (1 - x[ind["prop_cr"]]) * x_amo
   residuals <- y_mix - fitted
