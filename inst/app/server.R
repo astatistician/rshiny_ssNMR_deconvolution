@@ -126,153 +126,114 @@ server <- function(input, output, session) {
 				return(list(data.frame(ppm = ppm, amo = amo, cr = cr, mix = mix), info, spec_size))
 			}, label = "process three spectra (zero fill, apodization)")
 	
-	# create reactive values:
-	# A and M, to control model_fit object - whether the manual or automated fitting procedure will be applied
-	fit_bn_rv <- reactiveValues(A = 0, A.counter=0, M = 0, M.counter=0)
-	observeEvent(input$manual_fit_bn, {
-				fit_bn_rv$M <- 1
-				fit_bn_rv$A <- 0
-				fit_bn_rv$M.counter <- fit_bn_rv$M.counter+1
-			}, label = "update the indicator and counter for manual fitting")
-	observeEvent(input$automated_fit_bn, {
-				fit_bn_rv$M <- 0
-				fit_bn_rv$A <- 1
-				fit_bn_rv$A.counter <- fit_bn_rv$A.counter+1
-			}, label = "update the indicator and counter for automated fitting")
+	fit_bn_rv <- reactiveValues(counter=0)
+	observeEvent(input$fit_bn, {
+	  fit_bn_rv$counter <- fit_bn_rv$counter+1
+	}, label = "update the counter for the fitting button")
 	
-	# manual fitting: the crystalline proportion is estimated via NNLS based on the pre-processed data (according to the user input paramaters),
-	model_fit_M <- eventReactive(input$manual_fit_bn, {
+	# model fitting with nloptr
+	model_fit <- eventReactive(input$fit_bn, {
 				validate(need(input$path_amo, "Amorphous spectrum path required"), 
 						need(input$path_cr, "Crystalline spectrum path required"), 
 						need(input$path_mix, "Mixture spectrum path required"))
 				
-				notify_id <- showNotification("Manual model fitting is running...", duration = NULL, closeButton = FALSE, type = "message")
+				notify_id <- showNotification("Model fitting is running...", duration = NULL, closeButton = FALSE, type = "message")
 				on.exit(removeNotification(notify_id), add = TRUE)
 				
 				proc_data <- proc_data()
-				
 				ppm <- proc_data[[1]]$ppm
-				# process the amorphous spectrum
 				amo <- proc_data[[1]]$amo
-				amo <- ppm_shift(x = ppm, y = Re(amo), delta = input$ppm_amo)
-				amo <- norm(amo)
-				# process the crystalline spectrum
 				cr <- proc_data[[1]]$cr
-				cr <- norm(cr)
-				# process mixture spectrum
 				mix <- proc_data[[1]]$mix
-				N <- length(ppm)
-				lin_pred <- ph1_pred(1:N, int = input$ph0_mix * to_rad_const, slope = input$ph1_mix * to_rad_const, pivot_point = input$pivot_point, n = N, ppm)
-				mix <- ph_corr(mix, lin_pred)
-				mix <- ppm_shift(x = ppm, y = Re(mix), delta = input$ppm_mix)
-				mix <- norm(mix)
 				
-				model_input <- data.frame(ppm = ppm, amo = amo, cr = cr, mix = mix)
-				na_ind <- is.na(model_input$amo) | is.na(model_input$mix)
-				model_input <- model_input[!na_ind, ]
-				
-				param_constraints_tmp <- param_constraints() %>% filter(name == "prop_cr")
-				param_start_tmp <- trim_values(input$prop_cr, param_constraints_tmp[, 2:3] %>% as.numeric()) 
-				
-				if (input$prop_cr_usage == "estimate"){
+				if (input$estim_mode %in% c("only_prop", "explicit")) {
+				  amo <- ppm_shift(x = ppm, y = Re(amo), delta = input$ppm_amo)
+				  amo <- norm(amo)
+				  cr <- norm(cr)
+				  N <- length(ppm)
+				  lin_pred <- ph1_pred(1:N, int = input$ph0_mix * to_rad_const, slope = input$ph1_mix * to_rad_const, pivot_point = input$pivot_point, n = N, ppm)
+				  mix <- ph_corr(mix, lin_pred)
+				  mix <- ppm_shift(x = ppm, y = Re(mix), delta = input$ppm_mix)
+				  mix <- norm(mix)
+				  
+				  model_input <- data.frame(ppm = ppm, amo = amo, cr = cr, mix = mix)
+				  na_ind <- is.na(model_input$amo) | is.na(model_input$mix)
+				  model_input <- model_input[!na_ind, ]
+				  
+				  if (input$estim_mode == "explicit") {
+				    fitted <- input$prop_cr * model_input$cr + (1-input$prop_cr) * model_input$amo
+				    residuals <- model_input$mix - fitted
+				    dat <- cbind(model_input, fitted = fitted, residuals = residuals)
+				    solution <- c(prop_cr = input$prop_cr, rmse = sqrt(mean(residuals^2)))
+				    return(list(dat = dat, solution = solution))
+				  } else {
+				    param_constraints_tmp <- param_constraints() %>% filter(name == "prop_cr")
+				    param_start_tmp <- trim_values(input$prop_cr, param_constraints_tmp[, 2:3] %>% as.numeric())
+				    mod <- nloptr_wrapper(
+				      model_input
+				      , x_order = "prop_cr"
+				      , obj_fun = obj_fun
+				      , param_start = param_start_tmp
+				      , param_constraints = as.data.frame(param_constraints_tmp)
+				      , optim_algorithm = input$optim_algorithm
+				      , pivot_point = input$pivot_point)
+				    return(mod)
+				  }
+				# proportion AND pre-processing parameters estimation below
+				} else { 
+				  ph0_angle <- input$ph0_mix
+				  # if ph0_angle==0 then take pepsNMR PH0 as a starting value for PH0
+				  if (ph0_angle==0) {
+				    tmp <- matrix(mix, nrow = 1)
+				    colnames(tmp) <- ppm
+				    ph0_angle <- ZeroOrderPhaseCorrection(tmp, type.zopc = "max", returnAngle = TRUE)$Angle * to_deg_const
+				  }
+				  
+				  model_input <- data.frame(ppm = ppm, amo = amo, cr = cr, mix = mix)
+				  na_ind <- is.na(model_input$amo) | is.na(model_input$mix)
+				  model_input <- model_input[!na_ind, ]
+				  
+				  param_constraints_tmp <- param_constraints()
+				  # if user input values exceeds constraints specified for nloptr, then set starting values to the constraint values
+				  inputs_list <- reactiveValuesToList(input)
+				  param_start_tmp <- inputs_list[estim_order] 
+				  param_start_tmp["ph0_mix"] <- ph0_angle
+				  param_start_tmp <- param_start_tmp %>%
+				    keep(~!is.null(.x)) %>% 
+				    data.frame() %>% 
+				    pivot_longer(cols = everything(), names_to = "name", values_to = "start") %>% 
+				    inner_join(as.data.frame(param_constraints_tmp), by= "name") %>%
+				    mutate(multi_fac = ifelse(stri_detect(name, fixed = "ph"), to_rad_const, 1),
+				           start = start * multi_fac) %>%
+				    select(-c(name, multi_fac)) %>% 
+				    as.matrix() %>%
+				    apply(1, function(x) {
+				      trim_values(x[1], x[-1])
+				    })
+				  
 				  mod <- nloptr_wrapper(
 				    model_input
-				    , x_order = "prop_cr"
+				    , x_order = estim_order
 				    , obj_fun = obj_fun
 				    , param_start = param_start_tmp
 				    , param_constraints = as.data.frame(param_constraints_tmp)
 				    , optim_algorithm = input$optim_algorithm
 				    , pivot_point = input$pivot_point)
 				  return(mod)
-				  update_n_input_single("prop_cr", nnls_fit$x)
-				  
-				} else {
-				  fitted <- input$prop_cr * model_input$cr + (1-input$prop_cr) * model_input$amo
-				  residuals <- model_input$mix - fitted
-				  dat <- cbind(model_input, fitted = fitted, residuals = residuals)
-				  solution <- c(prop_cr = input$prop_cr, rmse = sqrt(mean(residuals^2)))
 				}
-				return(list(dat = dat, solution = solution))
+			
 			}, label = "do manual fitting")
-	
-	# automated fitting: the crystalline proportion, phase correction, chemical shift are jointly optimized via NLOPTR
-	model_fit_A <- eventReactive(input$automated_fit_bn, {
-				validate(need(input$path_amo, "Amorphous spectrum path required"), 
-						need(input$path_cr, "Crystalline spectrum path required"), 
-						need(input$path_mix, "Mixture spectrum path required"))
-				
-				notify_id <- showNotification("Automated model fitting is running...", duration = NULL, closeButton = FALSE, type = "message")
-				on.exit(removeNotification(notify_id), add = TRUE)
-				
-				proc_data <- proc_data()
-				
-				ppm <- proc_data[[1]]$ppm
-				amo <- proc_data[[1]]$amo
-				cr <- proc_data[[1]]$cr
-				mix <- proc_data[[1]]$mix
-				
-				ph0_angle <- input$ph0_mix
-				# if ph0_angle==0 then take pepsNMR PH0 as a starting value for PH0
-				if (ph0_angle==0) {
-					tmp <- matrix(mix, nrow = 1)
-					colnames(tmp) <- ppm
-					ph0_angle <- ZeroOrderPhaseCorrection(tmp, type.zopc = "max", returnAngle = TRUE)$Angle * to_deg_const
-				}
-				
-				model_input <- data.frame(ppm = ppm, amo = amo, cr = cr, mix = mix)
-				na_ind <- is.na(model_input$amo) | is.na(model_input$mix)
-				model_input <- model_input[!na_ind, ]
-				
-				param_constraints_tmp <- param_constraints()
-				
-				# if user input values exceeds constraints specified for nloptr, then set starting values to the constraint values
-				inputs_list <- reactiveValuesToList(input)
-				param_start_tmp <- inputs_list[estim_order] 
-				param_start_tmp["ph0_mix"] <- ph0_angle
-				param_start_tmp <- param_start_tmp %>%
-				  keep(~!is.null(.x)) %>% 
-				  data.frame() %>% 
-				  pivot_longer(cols = everything(), names_to = "name", values_to = "start") %>% 
-				  inner_join(as.data.frame(param_constraints_tmp), by= "name") %>%
-				  mutate(multi_fac = ifelse(stri_detect(name, fixed = "ph"), to_rad_const, 1),
-				         start = start * multi_fac) %>%
-				  select(-c(name, multi_fac)) %>% 
-				  as.matrix() %>%
-				  apply(1, function(x) {
-				    trim_values(x[1], x[-1])
-				  })
-				
-				mod <- nloptr_wrapper(
-				      model_input
-				    , x_order = estim_order
-						, obj_fun = obj_fun
-						, param_start = param_start_tmp
-						, param_constraints = as.data.frame(param_constraints_tmp)
-						, optim_algorithm = input$optim_algorithm
-						, pivot_point = input$pivot_point)
-				return(mod)
-			}, label = "do automated fitting")
-	
-	# assign accordingly either the manual or automated fitting routine results
-	model_fit <- eventReactive(c(input$manual_fit_bn, input$automated_fit_bn), {
-				if (fit_bn_rv$M == 1 & fit_bn_rv$A == 0) {
-					return(model_fit_M())
-				} else
-				if (fit_bn_rv$M == 0 & fit_bn_rv$A == 1) {
-					return(model_fit_A())
-				}
-			}, label = "assign manual or automated fitting results to an object")
 	
 	## operations on the user inputs
 	
-	# after the automated fitting procedure, update the corresponding pre-processing inputs
-	observeEvent(input$automated_fit_bn, {
-				update_n_input_multi(preproc_param_names, model_fit()$solution)
+	# after fitting with nloptr, update the corresponding inputs
+	observeEvent(input$fit_bn, {
+	      if (input$estim_mode == "only_prop") update_n_input_single("prop_cr", as.numeric(model_fit()$solution["prop_cr"]))
+	      if (input$estim_mode == "prop_preproc") update_n_input_multi(preproc_param_names, model_fit()$solution)
 			}, label = "update user inputs with nloptr estimates")
 	
 	# reset all input parameters to their default values
 	observeEvent(input$reset_bn, {
-				#lapply(as.list(proc_param_names[proc_param_names != "pivot_point"]), function(x) update_n_input_single(x, 0))
 	       tmp_name <- c(preproc_param_names, adv_param_names[adv_param_names != "optim_algorithm"])
 	       update_n_input_multi(tmp_name, unlist(param_defaults[tmp_name]))
 	       raw_data_tmp <- raw_data()
@@ -287,8 +248,8 @@ server <- function(input, output, session) {
 				track_inputs_rv$count_rows <- 0
 			}, label = "reset row counts to zero after changing a spectrum")
 	
-	# each time manual or automated fitting buton is pressed, update the underlying estimate tracking file
-	observeEvent(c(input$manual_fit_bn, input$automated_fit_bn), {
+	# each time Calculate button is pressed, update the underlying estimate tracking file
+	observeEvent(input$fit_bn, {
 				track_inputs_rv$count_rows <- track_inputs_rv$count_rows+1
 				tmp_list <- reactiveValuesToList(input)
 				next_row <- character(length(param_defaults) + 1); names(next_row) <- c("id", param_defaults_names)
@@ -299,11 +260,13 @@ server <- function(input, output, session) {
 				ms <- model_fit()$solution
 				next_row[c("id", "rmse", "prop_cr", "prop_cr_start")] <- c(track_inputs_rv$count_rows, ms["rmse"], ms["prop_cr"], input$prop_cr)
 				
-				if (fit_bn_rv$M == 1 & fit_bn_rv$A == 0) {
-				  next_row[c("fit_type", "optim_algorithm")] <- c("manual", "")
-				} else if (fit_bn_rv$M == 0 & fit_bn_rv$A == 1) {
-					ms <- model_fit()$solution
-					next_row[c("fit_type", preproc_param_names)] <- c("auto", ms[preproc_param_names])
+				if (input$estim_mode == "only_prop") {
+				  next_row["fit_type"] <- "only proportion"
+				} else if (input$estim_mode == "explicit") {
+				  next_row[c("fit_type", "optim_algorithm")] <- c("none, explicit proportion", "")
+				} else if (input$estim_mode == "prop_preproc") {
+				  ms <- model_fit()$solution
+				  next_row[c("fit_type", preproc_param_names)] <- c("proportion and pre-processing parameters", ms[preproc_param_names])
 				}
 				track_inputs_rv$x <- rbind(track_inputs_rv$x, next_row)
 			}, label = "update the underlying estimate tracking file", ignoreInit = TRUE)
@@ -311,7 +274,7 @@ server <- function(input, output, session) {
 	# restore parameter values from the previous model fitting step
 	observeEvent(input$undo_bn, {
 				# this condition ensures that at least two records are in the results file
-				if ((fit_bn_rv$M.counter+fit_bn_rv$A.counter)>=2) {
+				if (fit_bn_rv$counter>=2) {
 					update_n_input_multi(c(preproc_param_names, adv_param_names[adv_param_names != "optim_algorithm"]),
 					                     track_inputs_rv$x[nrow(track_inputs_rv$x)-1,])
 				} else{
@@ -331,7 +294,7 @@ server <- function(input, output, session) {
 			})
 	##
 	
-	# event for retaining zoom between data recalulcations in plotly graph
+	# event for retaining zoom between data recalculations in plotly graph
 	zoom <- reactive({
 	  req(model_fit())
 	  event_data("plotly_relayout", source = "p1")
@@ -362,7 +325,7 @@ server <- function(input, output, session) {
 				updateNumericInput(session, inputId = "pivot_point", value = plot_click()$x)
 			})
 	
-	plot_object <- eventReactive(c(input$manual_fit_bn, input$automated_fit_bn), {
+	plot_object <- eventReactive(input$fit_bn, {
 	  req(model_fit())
 	  p <- plot_model_fit(model_fit())
 	  # the output of plotly_relayout changes depending on the action: if you zoom in
@@ -422,7 +385,7 @@ server <- function(input, output, session) {
 				updateSelectInput(session, "path_mix", choices = dat[["path_mix"]])
 				param_selected <- c(preproc_param_names, adv_param_names[adv_param_names != "optim_algorithm"])
 				update_n_input_multi(param_selected, dat[param_selected])
-				updateTextInput(session, inputId = "optim_algorithm", value = dat["optim_algorithm"])
+				updateTextInput(session, inputId = "optim_algorithm", value = as.character(dat["optim_algorithm"]))
 			}, label = "load in estimated results")
 }
 
