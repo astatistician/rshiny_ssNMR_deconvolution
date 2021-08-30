@@ -222,7 +222,7 @@ server <- function(input, output, session) {
 				  return(mod)
 				}
 			
-			}, label = "do manual fitting")
+			}, label = "do the fitting")
 	
 	## operations on the user inputs
 	
