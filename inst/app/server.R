@@ -183,7 +183,7 @@ server <- function(input, output, session) {
 				} else { 
 				  ph0_angle <- input$ph0_mix
 				  # if ph0_angle==0 then take pepsNMR PH0 as a starting value for PH0
-				  if (ph0_angle==0) {
+				  if (input$do_PH0_PepsNMR) {
 				    tmp <- matrix(mix, nrow = 1)
 				    colnames(tmp) <- ppm
 				    ph0_angle <- ZeroOrderPhaseCorrection(tmp, type.zopc = "max", returnAngle = TRUE)$Angle * to_deg_const

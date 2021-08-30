@@ -51,6 +51,10 @@ ui <- fluidPage(
 						                                                   "proportion and pre-processing parameters" = "prop_preproc")
 						                                                 )
 						      ),
+						  conditionalPanel(
+						    condition = "input.estim_mode=='prop_preproc'",
+						    checkboxInput("do_PH0_PepsNMR", label = "Initial PH0 from PepsNMR (recommended for unprocessed mixture spec)", value = TRUE)
+						  ),
 						  actionButton("fit_bn", "Calculate", width = 210)
 						  ),
 						br(),br(),
