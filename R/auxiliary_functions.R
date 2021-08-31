@@ -303,7 +303,7 @@ nloptr_wrapper <- function(data, x_order, obj_fun, param_start, param_constraint
     prop_cr = results$solution[1], rmse = sqrt(results$objective/length(data$mix)), ph0_mix = results$solution[2] * to_deg_const,
     ph1_mix = results$solution[3] * to_deg_const, ppm_amo = results$solution[4], ppm_mix = results$solution[5], pivot_point = pivot_point
   )
-  return(list(dat = dat, solution = solution))
+  return(list(dat = dat, solution = solution, start = rlang::set_names(results$x0, x_order)))
 }
 
 #' @export 

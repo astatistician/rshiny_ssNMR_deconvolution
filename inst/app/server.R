@@ -11,16 +11,14 @@ server <- function(input, output, session) {
 # create a data frame (empty for the time being) for storing the estimated parameters
 	param_defaults_names <- names(param_defaults)
 	preproc_param_names <- param_defaults_names[param_defaults_names %in% c("prop_cr", "ppm_amo", "ppm_mix", "ph0_mix", "ph1_mix")]
-	adv_param_names <- param_defaults_names[param_defaults_names %in% c("add_zeroes", "lb_global", "lb_cr", "prop_cr_start",  "optim_algorithm", "ppm_amo_lower", "ppm_amo_upper", "ppm_mix_lower" ,"ppm_mix_upper", "ph0_mix_lower", "ph0_mix_upper", "ph1_mix_lower", "ph1_mix_upper")] 
-	tmp_names <- c(names(param_defaults), "prop_cr_start")
-	saved_params <- matrix(ncol = length(tmp_names) + 1, nrow = 0); colnames(saved_params) <- c("id", tmp_names)
+	adv_param_names <- param_defaults_names[param_defaults_names %in% c("add_zeroes", "lb_global", "lb_cr", "optim_algorithm", "ppm_amo_lower", "ppm_amo_upper", "ppm_mix_lower" ,"ppm_mix_upper", "ph0_mix_lower", "ph0_mix_upper", "ph1_mix_lower", "ph1_mix_upper")]
+	start_val_names <- param_defaults_names[str_detect(param_defaults_names, "_start")]
+	saved_params <- matrix(ncol = length(param_defaults_names) + 1, nrow = 0); colnames(saved_params) <- c("id", 	param_defaults_names)
 	
-	update_n_input_single <- function(id, value) updateNumericInput(session, inputId = id, value = value)
-	
-	update_n_input_multi <- function(params, dat){
+	update_n_inputs <- function(params, dat){
 		lapply(as.list(params), function(x) {
 					match_ind <- match(x, names(dat))
-					update_n_input_single(x, as.numeric(dat[match_ind]))
+					updateNumericInput(session, inputId = x, value = as.numeric(dat[match_ind]))
 				})
 	}
 #####
@@ -89,11 +87,15 @@ server <- function(input, output, session) {
 	
 	# update the pivot point field with the ppm value corresponding to 
 	# the most abundant peak of the selected mixture spectrum
+	max_peak_of_mix <- reactive({
+	  tmp <- raw_data()
+	  tmp[[1]]$ppm[which.max(abs(Re(tmp[[1]]$mix)))]
+	  })
+	
 	observeEvent(input$path_mix, {
 				tmp <- raw_data()
 				req(tmp, cancelOutput = TRUE)
-				updateNumericInput(session, inputId = "pivot_point", value = 
-								tmp[[1]]$ppm[which.max(abs(Re(tmp[[1]]$mix)))])
+				updateNumericInput(session, inputId = "pivot_point", value = max_peak_of_mix())
 			}, label = "update pivot point to the largest peak of mix", ignoreInit = TRUE)
 	
 	# process all three spectra at once (i.e. zero filling and apodization)
@@ -165,7 +167,9 @@ server <- function(input, output, session) {
 				    residuals <- model_input$mix - fitted
 				    dat <- cbind(model_input, fitted = fitted, residuals = residuals)
 				    solution <- c(prop_cr = input$prop_cr, rmse = sqrt(mean(residuals^2)))
-				    return(list(dat = dat, solution = solution))
+				    return(list(dat = dat, solution = solution, 
+				                # add below to be consistent with the other two modes of estimation
+				                start = rlang::set_names(rep(0, length(estim_order)), estim_order)))
 				  } else {
 				    param_constraints_tmp <- param_constraints() %>% filter(name == "prop_cr")
 				    param_start_tmp <- trim_values(input$prop_cr, param_constraints_tmp[, 2:3] %>% as.numeric())
@@ -228,16 +232,15 @@ server <- function(input, output, session) {
 	
 	# after fitting with nloptr, update the corresponding inputs
 	observeEvent(input$fit_bn, {
-	      if (input$estim_mode == "only_prop") update_n_input_single("prop_cr", as.numeric(model_fit()$solution["prop_cr"]))
-	      if (input$estim_mode == "prop_preproc") update_n_input_multi(preproc_param_names, model_fit()$solution)
+	      if (input$estim_mode == "only_prop") updateNumericInput(session, inputId = "prop_cr", value = as.numeric(model_fit()$solution["prop_cr"]))
+	      else if (input$estim_mode == "prop_preproc") update_n_inputs(preproc_param_names, model_fit()$solution)
 			}, label = "update user inputs with nloptr estimates")
 	
 	# reset all input parameters to their default values
 	observeEvent(input$reset_bn, {
 	       tmp_name <- c(preproc_param_names, adv_param_names[adv_param_names != "optim_algorithm"])
-	       update_n_input_multi(tmp_name, unlist(param_defaults[tmp_name]))
-	       raw_data_tmp <- raw_data()
-	       updateNumericInput(session, inputId = "pivot_point", value = raw_data_tmp[[1]]$ppm[which.max(abs(Re(raw_data_tmp[[1]]$mix)))])
+	       update_n_inputs(tmp_name, param_defaults %>% discard(is.character) %>% unlist())
+	       updateNumericInput(session, inputId = "pivot_point", value = max_peak_of_mix())
 	       updateTextInput(session, inputId = "optim_algorithm", value = param_defaults[["optim_algorithm"]])
 			}, label = "reset all user inputs to the default values")
 	
@@ -251,22 +254,24 @@ server <- function(input, output, session) {
 	# each time Calculate button is pressed, update the underlying estimate tracking file
 	observeEvent(input$fit_bn, {
 				track_inputs_rv$count_rows <- track_inputs_rv$count_rows+1
-				tmp_list <- reactiveValuesToList(input)
-				next_row <- character(length(param_defaults) + 1); names(next_row) <- c("id", param_defaults_names)
-				
+				curr_input_vals <- reactiveValuesToList(input)
+				next_row <- character(ncol(saved_params)); names(next_row) <- colnames(saved_params)
+				# first, assign default values
 				next_row[param_defaults_names] <- unlist(param_defaults)
-				vals <- tmp_list[param_defaults_names] %>% purrr::keep(~ !is.null(.x)) %>%  unlist()
+				vals <- curr_input_vals[param_defaults_names] %>% compact() %>% unlist()
+				# next, update them with input values
 				next_row[names(vals)] <- vals
+				# finally, assign model estimated values
 				ms <- model_fit()$solution
-				next_row[c("id", "rmse", "prop_cr", "prop_cr_start")] <- c(track_inputs_rv$count_rows, ms["rmse"], ms["prop_cr"], input$prop_cr)
+				next_row[c("id", "rmse", "prop_cr")] <- c(track_inputs_rv$count_rows, ms["rmse"], ms["prop_cr"])
+				next_row[paste0(names(model_fit()$start), "_start")] <- as.numeric(model_fit()$start) * ifelse(stri_detect(names(model_fit()$start), fixed = "ph"), to_deg_const, 1)
 				
 				if (input$estim_mode == "only_prop") {
 				  next_row["fit_type"] <- "only proportion"
 				} else if (input$estim_mode == "explicit") {
 				  next_row[c("fit_type", "optim_algorithm")] <- c("none, explicit proportion", "")
 				} else if (input$estim_mode == "prop_preproc") {
-				  ms <- model_fit()$solution
-				  next_row[c("fit_type", preproc_param_names)] <- c("proportion and pre-processing parameters", ms[preproc_param_names])
+				  next_row[c("fit_type", estim_order)] <- c("proportion and pre-processing parameters", ms[estim_order])
 				}
 				track_inputs_rv$x <- rbind(track_inputs_rv$x, next_row)
 			}, label = "update the underlying estimate tracking file", ignoreInit = TRUE)
@@ -275,8 +280,13 @@ server <- function(input, output, session) {
 	observeEvent(input$undo_bn, {
 				# this condition ensures that at least two records are in the results file
 				if (fit_bn_rv$counter>=2) {
-					update_n_input_multi(c(preproc_param_names, adv_param_names[adv_param_names != "optim_algorithm"]),
-					                     track_inputs_rv$x[nrow(track_inputs_rv$x)-1,])
+				  
+				  nam <- param_defaults %>% discard(~is.character(.x)) %>% enframe() %>% unnest(cols = c(value)) %>% 
+				    filter(!(name %in% "rmse") & !str_detect(name, pattern = "start")) %>%  pull(name)
+				  prev_dat <- track_inputs_rv$x[nrow(track_inputs_rv$x)-1,]
+				  update_n_inputs(nam, prev_dat)
+				  updateTextInput(session, inputId = "optim_algorithm", value = as.character(prev_dat["optim_algorithm"]))
+				  
 				} else{
 					showNotification("No previous model fit available", type = "warning")
 				}
@@ -384,7 +394,7 @@ server <- function(input, output, session) {
 				updateSelectInput(session, "path_cr", choices = dat[["path_cr"]])
 				updateSelectInput(session, "path_mix", choices = dat[["path_mix"]])
 				param_selected <- c(preproc_param_names, adv_param_names[adv_param_names != "optim_algorithm"])
-				update_n_input_multi(param_selected, dat[param_selected])
+				update_n_inputs(param_selected, dat[param_selected])
 				updateTextInput(session, inputId = "optim_algorithm", value = as.character(dat["optim_algorithm"]))
 			}, label = "load in estimated results")
 }

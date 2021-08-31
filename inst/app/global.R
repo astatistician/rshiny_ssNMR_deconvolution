@@ -35,7 +35,12 @@ param_defaults <- list(
   ph0_mix_lower	= 0,
   ph0_mix_upper	= 359.9999,
   ph1_mix_lower	= 0,
-  ph1_mix_upper= 359.9999)
+  ph1_mix_upper	= 359.9999,
+  prop_cr_start = 0,
+  ppm_amo_start	= 0,
+  ppm_mix_start	= 0,
+  ph0_mix_start	= 0,
+  ph1_mix_start	= 0)
 
 optim_algorithms_list <-
 		c("NLOPT_GN_DIRECT"
