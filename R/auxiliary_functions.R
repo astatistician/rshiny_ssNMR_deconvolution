@@ -1,7 +1,3 @@
-to_deg_const <- 180/pi
-to_rad_const <- pi/180
-
-
 # functions for computations ----------------------------------------------
 
 # reads in spectral data (a vectorized function - multiple spectra at once)
