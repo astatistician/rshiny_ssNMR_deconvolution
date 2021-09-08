@@ -60,3 +60,4 @@ optim_algorithms_list <-
 				,"NLOPT_LN_SBPLX"
 				,"NLOPT_LN_BOBYQA"
 				,"NLOPT_GN_ISRES")
+#test
