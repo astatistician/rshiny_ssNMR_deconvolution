@@ -61,7 +61,7 @@ server <- function(input, output, session) {
 	
 	# read in source data
 	raw_data <- reactive({
-				amo <- tryCatch(my_readin(input$path_amo, "spectrum"), error = function(err) return(err))
+				amo <- tryCatch(read_spectrum(input$path_amo, "spectrum"), error = function(err) return(err))
 				if(class(amo)[1] == "simpleError"){
 					showNotification(paste0("Error loading amorphous spectrum files: ", amo$message), type = "error")
 					return(NULL)
@@ -70,13 +70,13 @@ server <- function(input, output, session) {
 				spec_size <- info[length(info)] + input$add_zeroes
 				amo <- amo$data[[1]]
 				ppm <- as.numeric(names(amo))
-				cr <- tryCatch(my_readin(input$path_cr, "spectrum"), error = function(err) return(err))
+				cr <- tryCatch(read_spectrum(input$path_cr, "spectrum"), error = function(err) return(err))
 				if(class(cr)[1] == "simpleError"){
 					showNotification(paste0("Error loading crystalline spectrum files: ", cr$message), type = "error")
 					return(NULL)
 				}
 				cr <- cr$data[[1]]
-				mix <- tryCatch(my_readin(input$path_mix, "spectrum"), error = function(err) return(err))
+				mix <- tryCatch(read_spectrum(input$path_mix, "spectrum"), error = function(err) return(err))
 				if(class(mix)[1] == "simpleError"){
 					showNotification(paste0("Error loading mixture spectrum files: ", mix$message), type = "error")
 					return(NULL)
@@ -149,14 +149,14 @@ server <- function(input, output, session) {
 				mix <- proc_data[[1]]$mix
 				
 				if (input$estim_mode %in% c("only_prop", "explicit")) {
-				  amo <- ppm_shift(x = ppm, y = Re(amo), delta = input$ppm_amo)
-				  amo <- norm(amo)
-				  cr <- norm(cr)
+				  amo <- shift_horizon(x = ppm, y = Re(amo), delta = input$ppm_amo)
+				  amo <- norm_sum(amo)
+				  cr <- norm_sum(cr)
 				  N <- length(ppm)
-				  lin_pred <- ph1_pred(1:N, int = input$ph0_mix * to_rad_const, slope = input$ph1_mix * to_rad_const, pivot_point = input$pivot_point, n = N, ppm)
+				  lin_pred <- get_ph_angle(1:N, int = input$ph0_mix * to_rad_const, slope = input$ph1_mix * to_rad_const, pivot_point = input$pivot_point, n = N, ppm)
 				  mix <- ph_corr(mix, lin_pred)
-				  mix <- ppm_shift(x = ppm, y = Re(mix), delta = input$ppm_mix)
-				  mix <- norm(mix)
+				  mix <- shift_horizon(x = ppm, y = Re(mix), delta = input$ppm_mix)
+				  mix <- norm_sum(mix)
 				  
 				  model_input <- data.frame(ppm = ppm, amo = amo, cr = cr, mix = mix)
 				  na_ind <- is.na(model_input$amo) | is.na(model_input$mix)

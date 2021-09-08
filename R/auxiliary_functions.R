@@ -1,12 +1,10 @@
-#-#-#-#-#-##-#-#-#-#-##-#-#-#-#-#
-# auxiliary functions
-#-#-#-#-#-##-#-#-#-#-##-#-#-#-#-#
-
 to_deg_const <- 180/pi
 to_rad_const <- pi/180
 
-# "my_readin" function reads in spectral data (a vectorized function - multiple spectra at once)
 
+# functions for computations ----------------------------------------------
+
+# reads in spectral data (a vectorized function - multiple spectra at once)
 # Arguments:
 # type: "spectrum", "fid", or "text".
 # path: a character vector, length>=1. If type is set to "spectrum", then path to the folder contating "1r" and "1i" is expected
@@ -17,7 +15,7 @@ to_rad_const <- pi/180
 
 # Value: document the output later on
 #' @export 
-my_readin <- function(path, type) {
+read_spectrum <- function(path, type) {
 
   type <- match.arg(type, c("spectrum", "fid", "text"))
 
@@ -109,9 +107,9 @@ my_readin <- function(path, type) {
   }
 }
 
-# This function is only needed in case of client-server file interaction
+# Same as read_spectrum but this version is only needed in case of client-server file interaction
 #' @export 
-my_readin2 <- function(filesDF, type) {
+read_spectrum2 <- function(filesDF, type) {
 	
 	type <- match.arg(type, c("spectrum", "fid", "text"))
 	
@@ -205,7 +203,6 @@ my_readin2 <- function(filesDF, type) {
 	}
 }
 
-
 #' @export 
 zero_fill_apod <- function(x, size, LB, SW_h) {
   n <- length(x)
@@ -218,20 +215,25 @@ zero_fill_apod <- function(x, size, LB, SW_h) {
 }
 
 #' @export 
-ph_corr <- function(x, ph) x * exp(complex(real = 0, imaginary = ph))
+ph_corr <- function(x, ph) {
+  x * exp(complex(real = 0, imaginary = ph))
+}
 
 #' @export 
-ph1_pred <- function(x, int, slope, pivot_point, n, ppm) {
+get_ph_angle <- function(x, int, slope, pivot_point, n, ppm) {
   # the pivot_point value specified by the user may not be exactly present in the data
   # therefore take the closest point
   pivot_point_i <- which.min(abs(pivot_point-ppm))
-  slope / n * x + int - slope * pivot_point_i / n}
+  slope / n * x + int - slope * pivot_point_i / n
+}
 
 #' @export
-ppm_shift <- function(x, y, delta) approx(x = x, y = y, xout = x + delta)$y
+shift_horizon <- function(x, y, delta) {
+  approx(x = x, y = y, xout = x + delta)$y
+}
 
 #' @export
-norm <- function(x) Re(x) / sum(Re(x), na.rm = TRUE)
+norm_sum <- function(x) Re(x) / sum(Re(x), na.rm = TRUE)
 
 
 #' @export 
@@ -251,21 +253,21 @@ obj_fun <- function(x, x_order, ppm, amo, cr, mix, pivot_point, mode = "objectiv
                       ~ match(.x, x_order)) 
   x_amo <- Re(amo)
   if (!is.na(ind["ppm_amo"])) {
-    x_amo <- ppm_shift(x = ppm, y = x_amo, delta = x[ind["ppm_amo"]])
+    x_amo <- shift_horizon(x = ppm, y = x_amo, delta = x[ind["ppm_amo"]])
   }                  
-  x_amo <- norm(x_amo)
+  x_amo <- norm_sum(x_amo)
   
-  x_cryst <- norm(cr)
+  x_cryst <- norm_sum(cr)
   
   y_mix <- mix
   if (all(!is.na(ind[c("ph0_mix", "ph1_mix")]))){
-    lin_pred <- ph1_pred(x = int_seq, int = x[ind["ph0_mix"]], slope = x[ind["ph1_mix"]], pivot_point = pivot_point, n = n_points, ppm=ppm)
+    lin_pred <- get_ph_angle(x = int_seq, int = x[ind["ph0_mix"]], slope = x[ind["ph1_mix"]], pivot_point = pivot_point, n = n_points, ppm=ppm)
     y_mix <- ph_corr(y_mix, lin_pred)   
   }
   if (!is.na(ind["ppm_mix"])) {
-    y_mix <- ppm_shift(x = ppm, y = Re(y_mix), delta = x[ind["ppm_mix"]])
+    y_mix <- shift_horizon(x = ppm, y = Re(y_mix), delta = x[ind["ppm_mix"]])
   }
-  y_mix <- norm(y_mix)
+  y_mix <- norm_sum(y_mix)
   fitted <- x[ind["prop_cr"]] * x_cryst + (1 - x[ind["prop_cr"]]) * x_amo
   residuals <- y_mix - fitted
   # if mode = "objective" then return RSS (used in nloptr); else return input data + fitted values + residuals
@@ -305,6 +307,9 @@ nloptr_wrapper <- function(data, x_order, obj_fun, param_start, param_constraint
   )
   return(list(dat = dat, solution = solution, start = rlang::set_names(results$x0, x_order)))
 }
+
+
+# functions for graphs ----------------------------------------------------
 
 #' @export 
 plot_model_fit <- function(model_fit) {
