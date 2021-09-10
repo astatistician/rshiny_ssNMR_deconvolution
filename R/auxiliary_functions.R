@@ -317,3 +317,32 @@ plot_model_fit <- function(model_fit) {
     layout(xaxis = list(zeroline = FALSE, title = "ppm"), yaxis = list(title = "intensity")) 
   return(p)
 }
+
+# functions for notebooks -------------------------------------------------
+
+# input: 
+  # xlsx with paths and spiked proportions (doe_file); "spectrum"/"fid"/"text" (data_type); 
+  # column names to be excluded from labels (ref_template)
+# output: 
+  # list storing: named list with spectra, where vector name is ppm (data); acquistion parameters from TopSpin (acq_info)
+  # infrom from the input xlsx plus labels (doe_info)
+prep_data <- function(doe_file, data_type, ref_template) {
+  doe <- read_excel(doe_file) 
+  # create spectrum labels
+  # the column given by ref_template will be excluded from label (assumption: props sum to 1)
+  tmp <- doe %>% select(starts_with("p_") & !contains(identity(ref_template)))
+  tmp2 <- matrix(names(tmp), nrow = 1) %>%  str_remove("_templ") %>% 
+    t() %>% as_tibble() 
+  tmp3 <- bind_cols(tmp, tmp2, id = str_c("id", 1 : nrow(tmp) ))
+  templ_names <- names(tmp)
+  prefix_names <- names(tmp3)
+  prefix_names <- prefix_names[str_detect(prefix_names, pattern = "V")]
+  glue_var_order <- matrix(c(prefix_names, templ_names), nrow = 2, byrow = TRUE) %>% as.character
+  doe <- bind_cols(doe, unite(tmp3, col = "spec_label", all_of(glue_var_order), id))
+  # read in the data
+  input_dat <- read_spectrum(path = doe$path, type = data_type) 
+  input_dat$data <-  input_dat$data %>% purrr::set_names(doe$spec_label)
+  if (data_type == "text")
+  return(list(data = input_dat$data, acq_info = input_dat$info, doe_info = doe, n_spec = nrow(doe_info)))
+}
+
