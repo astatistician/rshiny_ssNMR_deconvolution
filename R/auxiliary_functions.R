@@ -307,6 +307,8 @@ nloptr_wrapper <- function(data, x_order, obj_fun, param_start, param_constraint
 
 # functions for graphs ----------------------------------------------------
 
+my_pal <- brewer.pal(8, "Dark2")
+
 #' @export 
 plot_model_fit <- function(model_fit) {
   p <- plot_ly(x = ~ model_fit$dat$ppm, y = ~ (1 - model_fit$solution["prop_cr"]) * model_fit$dat$amo, type = "scatter", mode = "lines", name = "0% crystal reference", line = list(width = 2, color = "black"), source = "p1") %>%
@@ -318,6 +320,31 @@ plot_model_fit <- function(model_fit) {
   return(p)
 }
 
+# The "dat" arg can be either: named (spec labels) list with named (ppm values) numeric vectors (spectra) OR a data frame/tible in wide format with cols: ppm, name of spec1, name of spec2, 
+# pass quoted commands via ... to modify ggplot object
+plot_spectrum <- function(dat, ... , rev_xaxis = TRUE, interactive = FALSE) {
+  if (class(dat) == "list") {
+    ppm <- as.numeric(names(dat[[1]]))
+    gg_dat <- dat %>% map_dfc(~.x) %>% bind_cols(ppm = ppm) %>% 
+      pivot_longer(cols = -ppm, names_to = "spectrum", values_to = "intensity")
+  } else if (any(class(dat) %in% c("data.frame", "tbl_df"))) {
+    gg_dat <- dat %>% pivot_longer(cols = -ppm, names_to = "spectrum", values_to = "intensity")
+  } else stop("List or data frame/tibble expected")
+  p <- gg_dat %>% ggplot(aes(x = ppm, y = intensity, colour = spectrum)) +
+    geom_line(size = 1) +
+    theme_bw() 
+  if (length(unique(gg_dat)) <=8 ) {
+    my_pal <- brewer.pal(8, "Dark2")
+    p <- p + scale_colour_manual(values = my_pal) 
+  }
+  add_options <- list(...)  
+  for (i in seq_along(add_options)) {
+    p <- p + eval(add_options[[i]])
+  }
+  if (rev_xaxis) p <- p + scale_x_reverse()
+  if (!interactive) p else ggplotly(p)
+}
+  
 # functions for notebooks -------------------------------------------------
 
 # input: 
