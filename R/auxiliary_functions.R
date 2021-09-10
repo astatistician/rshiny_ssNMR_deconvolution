@@ -195,7 +195,7 @@ read_spectrum2 <- function(filesDF, type) {
 			data_out[[i]] <- tmp_spec[, 2]
 			names(data_out[[i]]) <- tmp_spec[, 1]
 		}
-		return(list(data = data_out))
+		return(list(data = data_out, info = NULL))
 	}
 }
 
