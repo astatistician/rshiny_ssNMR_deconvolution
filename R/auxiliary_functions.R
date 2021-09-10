@@ -369,7 +369,6 @@ prep_data <- function(doe_file, data_type, ref_template) {
   # read in the data
   input_dat <- read_spectrum(path = doe$path, type = data_type) 
   input_dat$data <-  input_dat$data %>% purrr::set_names(doe$spec_label)
-  if (data_type == "text")
-  return(list(data = input_dat$data, acq_info = input_dat$info, doe_info = doe, n_spec = nrow(doe_info)))
+  return(list(data = input_dat$data, acq_info = input_dat$info, doe_info = doe, n_spec = nrow(doe)))
 }
 
