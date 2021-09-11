@@ -320,10 +320,11 @@ plot_model_fit <- function(model_fit) {
   return(p)
 }
 
-# The "dat" arg can be either: named (spec labels) list with named (ppm values) numeric vectors (spectra) OR a data frame/tible in wide format with cols: ppm, name of spec1, name of spec2, 
+# The "dat" arg can be either: named (spec labels) list with named (ppm values) numeric vectors (spectral intensities) 
+# OR a data frame/tible in wide format with cols: ppm, name of spec1, name of spec2, 
 # pass quoted commands via ... to modify ggplot object
 plot_spectrum <- function(dat, ... , rev_xaxis = TRUE, interactive = FALSE) {
-  if (class(dat) == "list") {
+  if (any(class(dat) == "list")) {
     ppm <- as.numeric(names(dat[[1]]))
     gg_dat <- dat %>% map_dfc(~.x) %>% bind_cols(ppm = ppm) %>% 
       pivot_longer(cols = -ppm, names_to = "spectrum", values_to = "intensity")
