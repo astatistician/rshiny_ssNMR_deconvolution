@@ -305,9 +305,128 @@ nloptr_wrapper <- function(data, x_order, obj_fun, param_start, param_constraint
 }
 
 
-# functions for graphs ----------------------------------------------------
+# modular optim -----------------------------------------------------------
 
-my_pal <- brewer.pal(8, "Dark2")
+proc_spectrum <- function(spec_cplx, steps, param_order, x, acq_info){
+  norm_ind <- FALSE
+  n_points <- length(spec_cplx)
+  if (any(str_detect(steps, "norm"))) {
+    norm_ind <- TRUE
+    steps <- steps %>% str_remove("norm") %>% stri_remove_empty() %>% compact()
+  }
+  #if (length(steps) != length(param_order)) stop("not equal sizes")
+  # apodization (exponential function)
+  if ("apod" %in% steps) {
+    apod_match_ind <- match("apod", steps)
+    spec_cplx <- zero_fill_apod(x = spec_cplx, size = n_points, LB = x[param_order[apod_match_ind]] , SW_h = acq_info[2])
+  }
+  # phase correction
+  if (any(steps %in% c("ph0", "ph1"))) {
+    ph0_match_ind <- match("ph0", steps)
+    ph1_match_ind <- match("ph1", steps)
+    ph0_val <- ifelse(!is.na(ph0_match_ind), x[param_order[ph0_match_ind]], 0)
+    ph1_val <- ifelse(!is.na(ph1_match_ind), x[param_order[ph1_match_ind]], 0)
+    lin_pred <- get_ph_angle(x = 1 : n_points, int = ph0_val, slope = ph1_val, pivot_point = ppm[which.max(Re(spec_cplx))[1]], n = n_points, ppm = ppm)
+    spec_cplx <- ph_corr(spec_cplx, lin_pred) 
+  }
+  # shift
+  if ("shift" %in% steps) {
+    shift_match_ind <- match("shift", steps)
+  }
+  # normalization
+  if (norm_ind) spec_cplx <- norm_sum(spec_cplx)
+  # multiplication factor
+  if ("multiply" %in% steps) {
+    multiply_match_ind <- match("multiply", steps) 
+    spec_cplx <- spec_cplx * x[param_order[multiply_match_ind]]
+  }
+  return(spec_cplx)
+}
+
+get_param_index <- function(param_list, n_prop) {
+  param_list <- param_list %>% map(~str_remove(.x, "norm") %>% stri_remove_empty())
+  param_list_flat <- param_list %>% unlist()
+  x_seq <- (n_prop+1):(n_prop+1+length(param_list_flat))
+  end_ind <- param_list %>% map_dbl(length) %>% cumsum()
+  start_ind <- end_ind - (param_list %>% map_dbl(length) - 1)
+  x_list <- param_list
+  for (i in seq_along(x_list)) {
+    x_list[[i]] <- x_seq[start_ind[i] : end_ind[i]]
+  }
+  return(x_list)
+}
+
+obj_fun2 <- function(x, proc_steps, y, X, ppm, acq_info, ref_template_label, mode = "objective") {
+  X_org <- X
+  x_list <- get_param_index(proc_steps, length(X)-1)
+  # run proc_spec for each spectrum in X and y
+  y <- proc_spectrum(spec_cplx = y, steps = pluck(proc_steps, 1), param_order = pluck(x_list, 1), x = x, acq_info = acq_info)
+  tmp_list <- list(X, proc_steps[-1], x_list[-1])
+  X <- pmap_dfc(tmp_list, proc_spectrum, x = x, acq_info = acq_info)
+  X_ref_vector <- X[[ref_template_label]]
+  # the linear model
+  y <- y - X_ref_vector
+  X_full <- X %>% mutate(across(everything(), .fns = ~(.x - X_ref_vector), .names = NULL)) 
+  X <- X_full %>% select(-any_of(ref_template_label))
+  fitted <- as.matrix(X) %*% x[1:length(X)] %>%  as.numeric()
+  residuals <- y - fitted
+  if (mode!="objective"){
+    return(tibble(y = y + X_ref_vector, X_full + X_ref_vector , ppm = ppm, fitted = fitted + X_ref_vector, residuals = residuals) %>% drop_na())
+  } else return(sum(residuals^2, na.rm = TRUE))
+}
+
+get_param_details <- function(proc_steps, n_prop){
+  proc_steps <- proc_steps %>% map(~str_remove(.x, "norm") %>% stri_remove_empty()) %>% compact()
+  if (length(proc_steps) >= 1){
+    x_list <- get_param_index(proc_steps, n_prop)
+  } else x_list <- list()
+  param_details <- matrix(NA, nrow = max(c(unlist(x_list), 1)), ncol = 3)
+  # prop
+  param_details[1 : n_prop, ] <- matrix(rep(c(0, 0, 1), n_prop), byrow = TRUE, ncol = 3)
+  if (length(proc_steps) >= 1){
+    # other processing params
+    default_details <- tribble(~name, ~start, ~lb, ~ub,
+                               "apod", 0, 0, 1000,
+                               "ph0", 0, 0, 2*pi,
+                               "ph1", 0, 0, 2*pi,
+                               "shift", 0, -0.2, 0.2,
+                               "multiply", 1, 0, 1000)
+    param_details[-(1 : n_prop), ] <- map2_dfr(unlist(proc_steps), unlist(x_list), ~{
+      ind <- match(.x, default_details$name)
+      default_details[ind, -1]
+    }) %>% as.matrix()
+  }
+  colnames(param_details) <- c("start", "lb", "ub")
+  return(as_tibble(param_details))
+}
+
+nloptr_wrapper2 <- function(dat, proc_steps, obj_fun, param_info, optim_algorithm) {
+  results <- nloptr::nloptr(
+    x0 = param_info$start,
+    eval_f = obj_fun2,
+    lb = param_info$lb,
+    ub = param_info$ub,
+    opts = list(
+      "algorithm" = optim_algorithm,
+      "xtol_rel" = 1.0e-10,
+      "xtol_abs" = 1.0e-10,
+      "maxeval" = 2000,
+      print_level = 3
+    ),
+    proc_steps = proc_steps,
+    y = dat$y,
+    X = dat$X,
+    ppm = dat$ppm,
+    acq_info = dat$acq_info,
+    ref_template_label = dat$ref_template_label,
+    mode = "objective"
+  )
+  dat_tmp <- obj_fun2(x = results$solution, proc_steps = proc_steps, y = dat$y, X = dat$X, ppm = dat$ppm, acq_info = dat$acq_info , ref_template_label = dat$ref_template_label, mode = "prediction") %>% drop_na()
+  solution <- list(prop = results$solution[1 : (length(dat$X)-1)], rmse = sqrt(results$objective/length(na.omit(dat_tmp$y))))
+  return(list(dat = dat_tmp, solution = solution))
+}
+
+# functions for graphs ----------------------------------------------------
 
 #' @export 
 plot_model_fit <- function(model_fit) {
@@ -320,32 +439,117 @@ plot_model_fit <- function(model_fit) {
   return(p)
 }
 
-# The "dat" arg can be either: named (spec labels) list with named (ppm values) numeric vectors (spectral intensities) 
-# OR a data frame/tible in wide format with cols: ppm, name of spec1, name of spec2, 
-# pass quoted commands via ... to modify ggplot object
-plot_spectrum <- function(dat, ... , rev_xaxis = TRUE, interactive = FALSE) {
-  if (any(class(dat) == "list")) {
-    ppm <- as.numeric(names(dat[[1]]))
-    gg_dat <- dat %>% map_dfc(~.x) %>% bind_cols(ppm = ppm) %>% 
-      pivot_longer(cols = -ppm, names_to = "spectrum", values_to = "intensity")
-  } else if (any(class(dat) %in% c("data.frame", "tbl_df"))) {
-    gg_dat <- dat %>% pivot_longer(cols = -ppm, names_to = "spectrum", values_to = "intensity")
-  } else stop("List or data frame/tibble expected")
-  p <- gg_dat %>% ggplot(aes(x = ppm, y = intensity, colour = spectrum)) +
-    geom_line(size = 1) +
-    theme_bw() 
-  if (length(unique(gg_dat)) <=8 ) {
-    my_pal <- brewer.pal(8, "Dark2")
-    p <- p + scale_colour_manual(values = my_pal) 
+add_deconvolution_palette <- function(gg_plot, return_palette = FALSE){
+  my_pal <- c("#000000", brewer.pal(8, "Dark2"))
+  if (return_palette) return(my_pal) else {
+    gg_plot <- gg_plot + scale_colour_manual(values = my_pal)
+    return(gg_plot)
   }
+}
+
+# x - numeric vector with xaxis values; y - numeric vector or matrix/data frame/tibble with intensities
+# pass quoted commands via ... to modify ggplot object
+# add feature to rescale template spectra according to the estimated proportion values
+plot_spectrum <- function(x, y, ... , rev_xaxis = TRUE, interactive = FALSE) {
+  gg_dat <- bind_cols(x = x,y) %>% pivot_longer(cols = -x, names_to = "spectrum", values_to = "intensity")
+  p <- gg_dat %>% ggplot(aes(x = x, y = intensity, colour = spectrum)) +
+    geom_line() +
+    theme_bw() +
+    scale_y_continuous(breaks = scales::pretty_breaks(n = 8))
+  # if (length(unique(gg_dat)) <=8 ) {
+  #   my_pal <- brewer.pal(8, "Dark2")
+  #   p <- p + scale_colour_manual(values = my_pal) 
+  # }
+  if (length(unique(gg_dat)) <=9) p <- add_deconvolution_palette(p)
   add_options <- list(...)  
   for (i in seq_along(add_options)) {
     p <- p + eval(add_options[[i]])
   }
-  if (rev_xaxis) p <- p + scale_x_reverse()
+  if (rev_xaxis) p <- p + scale_x_reverse(breaks = scales::pretty_breaks(n = 8)) else {
+    p <- p + scale_x_continuous(breaks = scales::pretty_breaks(n = 8))
+  }
   if (!interactive) p else ggplotly(p)
 }
+
+# adjust ratio computation to handle >2 templates situations  
+plot_calibration_curve <- function(x, y, scale_in, scale_out, ..., intercept = TRUE) {
+  if (length(y) != length(x)) stop("x and y vectors are not equally sized")
+  if (scale_in=='proportion' & scale_out=='ratio'){
+    signal_est <- y/(1-y)
+    signal_true <- x/(1-x)
+  } else if (scale_in=='ratio' & scale_out=='proportion'){
+    signal_est <- 1+1/y
+    signal_true <- 1+1/x 
+  } else {
+    signal_est <- y
+    signal_true <- x 
+  }
+  x_lab <- str_c("true", scale_out, sep = " ")
+  y_lab <- str_c("estimated", scale_out, sep = " ")
+  gg_dat <- bind_cols(signal_est, signal_true)
+  p <- gg_dat %>% ggplot(aes(x = signal_true, y = signal_est)) +
+    geom_point() +
+    theme_bw() +
+    scale_x_continuous(breaks = scales::pretty_breaks(n = 8)) +
+    scale_y_continuous(breaks = scales::pretty_breaks(n = 8)) +
+    labs(x = x_lab, y = y_lab)
+  if (intercept) mod <- lm(signal_est ~ signal_true) else mod <- lm(signal_est ~ -1+signal_true)
+  cf <- coef(mod)
+  summ <- summary(mod)
+  legend_txt1 <- paste(paste0(quote('R^2='), round(summ$r.squared,5)), '\n', 
+                    paste0(quote('sigma='), round(summ$sigma,5)), collapse=' ')
+  cf_sign <- ifelse(sign(cf)<0, "-", "+")
+  cf_abs <- abs(cf)
+  legend_txt2 <- paste0('y = ', ifelse(intercept, 
+                                     paste0(round(coef(mod)[2],4), 'x', " ", cf_sign[2], " ", round(cf_abs[1],3)),
+                                     paste0(round(coef(mod)[1],4), 'x')))
+  range_x <- range(signal_true)
+  range_y <- range(signal_est)
+  p <- p + geom_text(x = range_x[1] + diff(range_x) * 0.15, y = range_y[2] - diff(range_y) * 0.15 , label = legend_txt2) +
+    geom_text(x = range_x[2] - diff(range_x) * 0.15, y = range_y[1] + diff(range_y) * 0.15, label = legend_txt1) + 
+    geom_smooth(method = "lm", formula = y ~ x, se = FALSE)
   
+  add_options <- list(...)  
+  for (i in seq_along(add_options)) {
+    p <- p + eval(add_options[[i]])
+  }
+  p
+}
+
+# x - vector with ground truth
+# y - vector or matrix with estimates (columns)
+# add option to handle ratios instead of proportions
+plot_estimate_errors <- function(x, y, error_type, ...) {
+  y_org <- y
+  y <- as_tibble(y)
+  err_fun <- function(x,y, type){
+    switch(type,
+           "diff" = y-x,
+           "relative diff" = ifelse(x != 0, (y-x)/x, NaN),
+           "multiplicative err" = ifelse(x != 0, y/x, NaN))
+  }
+  error_match <- match.arg(error_type, c("diff", "relative diff", "multiplicative err"))
+  line_y_intercept <- ifelse(error_match == "multiplicative err", 1, 0)
+  gg_dat <- bind_cols(x = x, y) %>%  pivot_longer(cols = -x, names_to = "group", values_to = "y") %>% 
+    mutate(err = err_fun(x, y, error_match))
+  p <- gg_dat %>% ggplot(aes(x = x, y = err, colour = group)) +
+    geom_line() + 
+    geom_point(size = 2) +
+    #geom_point(aes(fill = group), size=2, color='black', shape=21) +
+    geom_hline(yintercept = line_y_intercept, linetype="dashed") +
+    theme_bw() +
+    scale_x_continuous(breaks = scales::pretty_breaks(n = 8)) +
+    scale_y_continuous(breaks = scales::pretty_breaks(n = 8)) +
+    labs(x = "true proportion", y = error_match)
+  if (length(unique(gg_dat)) <=9) p <- add_deconvolution_palette(p)
+  if (length(y) == 1) p <- p + theme(legend.position = "none")
+  add_options <- list(...)  
+  for (i in seq_along(add_options)) {
+    p <- p + eval(add_options[[i]])
+  }
+  p
+}
+
 # functions for notebooks -------------------------------------------------
 
 # input: 
@@ -367,9 +571,24 @@ prep_data <- function(doe_file, data_type, ref_template) {
   prefix_names <- prefix_names[str_detect(prefix_names, pattern = "V")]
   glue_var_order <- matrix(c(prefix_names, templ_names), nrow = 2, byrow = TRUE) %>% as.character
   doe <- bind_cols(doe, unite(tmp3, col = "spec_label", all_of(glue_var_order), id))
+  # create indicators of template spectra
+  a <- doe %>% select(starts_with("p_"))
+  b <- a; b[] <- FALSE
+  # only the first spectrum with 100% concentration is marked as a template 
+  a <- a %>% map(~(min(which(.x==1))))
+  templ_ind = map2(a,b, ~{.y[.x] = TRUE; .y}) %>% as_tibble() %>% rename_with(~str_remove(string = .x, pattern = "p_"))
+  doe <- bind_cols(doe, templ_ind)
+  # get the reference template spectrum label, useful in modelling
+  ref_template_label <- doe %>% filter(across(str_remove(ref_template, "p_"))) %>% pull(spec_label)
   # read in the data
   input_dat <- read_spectrum(path = doe$path, type = data_type) 
   input_dat$data <-  input_dat$data %>% purrr::set_names(doe$spec_label)
-  return(list(data = input_dat$data, acq_info = input_dat$info, doe_info = doe, n_spec = nrow(doe)))
+  return(list(data = input_dat$data, acq_info = input_dat$info, doe_info = doe, n_spec = nrow(doe), ref_template_label = ref_template_label))
+}
+
+# switch from list to tibble (more convenient), first column: ppm, other columns: labeled spectra
+get_spectral_tibble <- function(dat) {
+  #dat %>% map_dfc(~.x) %>% bind_cols(ppm = as.numeric(names(input_dat$data$p1_0_id1))) %>% select(ppm, everything())
+  dat %>% map_dfc(~.x)
 }
 
