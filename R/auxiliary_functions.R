@@ -541,7 +541,7 @@ plot_estimate_errors <- function(x, y, error_type, ...) {
     scale_x_continuous(breaks = scales::pretty_breaks(n = 8)) +
     scale_y_continuous(breaks = scales::pretty_breaks(n = 8)) +
     labs(x = "true proportion", y = error_match)
-  if (length(unique(gg_dat)) <=9) p <- add_deconvolution_palette(p)
+  if (length(unique(gg_dat$group)) <=9) p <- add_deconvolution_palette(p)
   if (length(y) == 1) p <- p + theme(legend.position = "none")
   add_options <- list(...)  
   for (i in seq_along(add_options)) {
