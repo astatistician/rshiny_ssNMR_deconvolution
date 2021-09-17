@@ -496,13 +496,13 @@ plot_calibration_curve <- function(x, y, scale_in, scale_out, ..., intercept = T
   if (intercept) mod <- lm(signal_est ~ signal_true) else mod <- lm(signal_est ~ -1+signal_true)
   cf <- coef(mod)
   summ <- summary(mod)
-  legend_txt1 <- paste(paste0(quote('R^2='), round(summ$r.squared,5)), '\n', 
+  legend_txt1 <- paste(paste0(quote('R^2='), round(summ$r.squared,4)), '\n', 
                     paste0(quote('sigma='), round(summ$sigma,5)), collapse=' ')
   cf_sign <- ifelse(sign(cf)<0, "-", "+")
   cf_abs <- abs(cf)
   legend_txt2 <- paste0('y = ', ifelse(intercept, 
-                                     paste0(round(coef(mod)[2],4), 'x', " ", cf_sign[2], " ", round(cf_abs[1],3)),
-                                     paste0(round(coef(mod)[1],4), 'x')))
+                                     paste0(round(coef(mod)[2],3), 'x', " ", cf_sign[1], " ", round(cf_abs[1],3)),
+                                     paste0(round(coef(mod)[1],3), 'x')))
   range_x <- range(signal_true)
   range_y <- range(signal_est)
   p <- p + geom_text(x = range_x[1] + diff(range_x) * 0.15, y = range_y[2] - diff(range_y) * 0.15 , label = legend_txt2) +
