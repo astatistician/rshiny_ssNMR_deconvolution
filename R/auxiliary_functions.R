@@ -352,8 +352,12 @@ get_param_index <- function(proc_steps, n_prop) {
   start_ind <- end_ind - (proc_steps %>% map_dbl(length) - 1)
   x_list <- proc_steps
   for (i in seq_along(x_list)) {
-    x_list[[i]] <- x_seq[start_ind[i] : end_ind[i]]
-  }
+    if (!empty_ind[i]) {
+      x_list[[i]] <- x_seq[start_ind[i] : end_ind[i]]
+    } else {
+      x_list[[i]] <- NA
+    }
+    }
   return(x_list)
 }
 
