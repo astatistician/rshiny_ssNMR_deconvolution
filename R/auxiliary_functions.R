@@ -623,3 +623,12 @@ get_spectral_tibble <- function(dat) {
   dat %>% map_dfc(~.x)
 }
 
+# extract list (names are the names of mixture spectra) containing all estimated proportions (sum to one)
+extract_all_props <- function(results_list, ref_template_label){
+  names_org <- names(results_list)
+  results_list %>% unname() %>% map(~{
+    prop1 <- pluck(.x, "solution", "prop")
+    c(prop1, set_names(1-sum(prop1), ref_template_label))
+  }) %>% set_names(names_org)
+}
+
