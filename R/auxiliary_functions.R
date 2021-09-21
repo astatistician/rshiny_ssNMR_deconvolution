@@ -426,8 +426,9 @@ nloptr_wrapper2 <- function(dat, obj_fun, proc_steps, start_constraints, optim_a
     ref_template_label = dat$ref_template_label,
     mode = "objective"
   )
+  prop_names <- dat$X %>% select(-dat$ref_template_label) %>% names()
   dat_tmp <- obj_fun2(x = results$solution, proc_steps = proc_steps, y = dat$y, X = dat$X, ppm = dat$ppm, acq_info = dat$acq_info , ref_template_label = dat$ref_template_label, mode = "prediction") %>% drop_na()
-  solution <- list(prop = results$solution[1 : (length(dat$X)-1)], rmse = sqrt(results$objective/length(na.omit(dat_tmp$y))))
+  solution <- list(prop = set_names(results$solution[1 : (length(dat$X)-1)], prop_names), rmse = sqrt(results$objective/length(na.omit(dat_tmp$y))))
   return(list(dat = dat_tmp, solution = solution))
 }
 
