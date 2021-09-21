@@ -456,7 +456,16 @@ add_deconvolution_palette <- function(gg_plot, return_palette = FALSE){
 # x - numeric vector with xaxis values; y - numeric vector or matrix/data frame/tibble with intensities
 # pass quoted commands via ... to modify ggplot object
 # add feature to rescale template spectra according to the estimated proportion values
-plot_spectrum <- function(x, y, ... , rev_xaxis = TRUE, interactive = FALSE) {
+# scaling_factors is numeric vector with names corresponding to templates' names (stored in y)
+plot_spectrum <- function(x, y, ... , scaling_factors = NULL, rev_xaxis = TRUE, interactive = FALSE) {
+  if (!(is.null(scaling_factors) | is.null(names(scaling_factors)))) {
+    name_y <- names(y)
+    name_y_ind <- str_detect(name_y, "_id")
+    name_scaling_factors <- names(scaling_factors)
+    scaling_factors <- matrix(rep(scaling_factors, each = nrow(y)), ncol = sum(name_y_ind), dimnames = list(rep("", nrow(y)), name_scaling_factors)) 
+    match_ind <- match(name_scaling_factors, name_y)
+    y[, match_ind] <- y[, match_ind] * scaling_factors
+  }
   gg_dat <- bind_cols(x = x,y) %>% pivot_longer(cols = -x, names_to = "spectrum", values_to = "intensity")
   p <- gg_dat %>% ggplot(aes(x = x, y = intensity, colour = spectrum)) +
     geom_line() +
