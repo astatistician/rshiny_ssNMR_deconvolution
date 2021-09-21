@@ -461,10 +461,6 @@ plot_spectrum <- function(x, y, ... , rev_xaxis = TRUE, interactive = FALSE) {
     geom_line() +
     theme_bw() +
     scale_y_continuous(breaks = scales::pretty_breaks(n = 8))
-  # if (length(unique(gg_dat)) <=8 ) {
-  #   my_pal <- brewer.pal(8, "Dark2")
-  #   p <- p + scale_colour_manual(values = my_pal) 
-  # }
   if (length(unique(gg_dat)) <=9) p <- add_deconvolution_palette(p)
   add_options <- list(...)  
   for (i in seq_along(add_options)) {
