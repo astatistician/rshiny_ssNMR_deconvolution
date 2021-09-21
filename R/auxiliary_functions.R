@@ -561,6 +561,26 @@ plot_estimate_errors <- function(x, y, error_type, ...) {
   p
 }
 
+plot_ma <- function(x, y,...){
+  gg_dat <- bind_cols(x = x, y = y) %>% 
+    drop_na() %>% filter(x>0 & y>0) %>% 
+    mutate(`log2Ratio` = log2(y/x), `log2Avg` = .5*(log2(x)+log2(y)))
+  p <- gg_dat %>% 
+    ggplot(aes(x = `log2Avg`, y = `log2Ratio`)) +
+    geom_point() +
+    geom_hline(yintercept = 0.0, color = "black") +
+    geom_hline(yintercept = 1.0, color = "black", linetype = "dotted") +
+    geom_hline(yintercept = -1.0, color = "black", linetype = "dotted") + 
+    scale_x_continuous(breaks = scales::pretty_breaks(n = 8)) +
+    scale_y_continuous(breaks = scales::pretty_breaks(n = 8)) +
+    theme_bw() 
+  add_options <- list(...)  
+  for (i in seq_along(add_options)) {
+    p <- p + eval(add_options[[i]])
+  }
+  p
+}
+  
 # functions for notebooks -------------------------------------------------
 
 # input: 
