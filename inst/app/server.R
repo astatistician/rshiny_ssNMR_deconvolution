@@ -237,7 +237,10 @@ server <- function(input, output, session) {
 			}, label = "update user inputs with nloptr estimates")
 	
 	# reset all input parameters to their default values
-	observeEvent(input$reset_bn, {
+	observeEvent({
+	  input$reset_bn 
+	  req(input$path_amo, input$path_cr, input$path_mix)
+	  }, {
 	       tmp_name <- c(preproc_param_names, adv_param_names[adv_param_names != "optim_algorithm"])
 	       update_n_inputs(tmp_name, param_defaults %>% discard(is.character) %>% unlist())
 	       updateNumericInput(session, inputId = "pivot_point", value = max_peak_of_mix())
