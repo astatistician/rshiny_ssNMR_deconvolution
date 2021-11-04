@@ -476,7 +476,7 @@ prep_data <- function(doe_file, data_type, ref_template) {
   # get the reference template spectrum label, useful in modelling
   ref_template_label <- doe %>% filter(across(str_remove(ref_template, "p_"))) %>% pull(spec_label)
   # read in the data
-  input_dat <- read_spectrum(path = doe$path, type = data_type) 
+  input_dat <- read_spectrum_nmr(path = doe$path, type = data_type) 
   input_dat$data <-  input_dat$data %>% purrr::set_names(doe$spec_label)
   return(list(data = input_dat$data, acq_info = input_dat$info, doe_info = doe, n_spec = nrow(doe), ref_template_label = ref_template_label))
 }
