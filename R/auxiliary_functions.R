@@ -284,7 +284,7 @@ nloptr_wrapper <- function(data, x_order, obj_fun, param_start, param_constraint
       "xtol_rel" = 1.0e-10,
       "xtol_abs" = 1.0e-10,
       "maxeval" = 2000,
-      print_level = 3
+      print_level = 0
     ),
     x_order = x_order,
     amo = data$amo,
@@ -416,7 +416,7 @@ nloptr_wrapper2 <- function(dat, obj_fun, proc_steps, start_constraints, optim_a
       "xtol_rel" = 1.0e-10,
       "xtol_abs" = 1.0e-10,
       "maxeval" = 2000,
-      print_level = 3
+      print_level = 0
     ),
     proc_steps = proc_steps,
     y = dat$y,
