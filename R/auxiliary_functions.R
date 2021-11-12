@@ -306,7 +306,7 @@ nloptr_wrapper <- function(data, x_order, obj_fun, param_start, param_constraint
 
 # modular optim -----------------------------------------------------------
 
-process_spectrum <- function(spec_cplx, proc_steps, proc_steps_order, x, acq_info, ppm){
+process_spectrum <- function(spec_cplx, proc_steps, proc_steps_order, x, acq_info){
   norm_ind <- FALSE
   n_points <- length(spec_cplx)
   if (any(str_detect(proc_steps, "norm"))) {
@@ -365,9 +365,9 @@ obj_fun2 <- function(x, proc_steps, y, X, ppm, acq_info, ref_template_label, mod
   X_org <- X
   x_list <- get_param_index(proc_steps, length(X)-1)
   # run proc_spec for each spectrum in X and y
-  y <- process_spectrum(spec_cplx = y, proc_steps = pluck(proc_steps, 1), proc_steps_order = pluck(x_list, 1), x = x, acq_info = acq_info, ppm = ppm)
+  y <- process_spectrum(spec_cplx = y, proc_steps = pluck(proc_steps, 1), proc_steps_order = pluck(x_list, 1), x = x, acq_info = acq_info)
   tmp_list <- list(X, proc_steps[-1], x_list[-1])
-  X <- pmap_dfc(tmp_list, process_spectrum, x = x, acq_info = acq_info, ppm = ppm)
+  X <- pmap_dfc(tmp_list, process_spectrum, x = x, acq_info = acq_info)
   X_ref_vector <- X[[ref_template_label]]
   # the linear model
   y <- y - X_ref_vector
