@@ -342,7 +342,7 @@ process_spectrum <- function(spec_cplx, proc_steps, proc_steps_order, x, acq_inf
     spec_cplx_vec <- spec_cplx_vec * x[proc_steps_order[multiply_match_ind]]
   }
   spec_cplx$y <- spec_cplx_vec
-  return(spec_cplx)
+  return(spec_cplx$y)
 }
 
 get_param_index <- function(proc_steps, n_prop) {
@@ -364,8 +364,23 @@ get_param_index <- function(proc_steps, n_prop) {
   return(x_list)
 }
 
-align_peaks <- function(spectrum_df, ref_ppm){
-  approx(x = spectrum_df[["x"]], y = spectrum_df[["y"]], xout = ref_ppm)$y
+# align horizontally (x-axis) all spectra against one selected spectrum using linear interpolation
+align_peaks <- function(spectrum_df, ref_template_label, remove_all_na = TRUE){
+  ref_spectrum <- spectrum_df %>% filter(signal == ref_template_label)
+  other_spectra_split <- spectrum_df %>% filter(signal != ref_template_label) %>%
+    split(.$signal)
+  out <- other_spectra_split %>% map_dfc(~{
+    cplx <- .x$y
+    re_part <- approx(x = .x$x, y = Re(cplx), xout = ref_spectrum$x)$y
+    im_part <- approx(x = .x$x, y = Im(cplx), xout = ref_spectrum$x)$y
+    .x$y <- complex(real = re_part, imaginary = im_part)
+    .x$y
+  }) %>% bind_cols(ref_spectrum %>% select(-signal))
+  if (remove_all_na) {
+    out <- out %>% drop_na()
+  }
+  out <- out %>% rename(!! ref_template_label := y) %>%  pivot_longer(cols = -x, names_to = "signal", values_to = "y") %>% select(signal, everything())
+  return(out)
 }
 
 obj_fun2 <- function(x, proc_steps, y, X, acq_info, ref_template_label, mode = "objective") {
@@ -374,10 +389,7 @@ obj_fun2 <- function(x, proc_steps, y, X, acq_info, ref_template_label, mode = "
   # run proc_spec for each spectrum in X and y
   y <- process_spectrum(spec_cplx = y, proc_steps = pluck(proc_steps, 1), proc_steps_order = pluck(x_list, 1), x = x, acq_info = acq_info)
   tmp_list <- list(X, proc_steps[-1], x_list[-1])
-  X <- pmap(tmp_list, process_spectrum, x = x, acq_info = acq_info)
-  # align (on x-axis) template spectra against the mixture
-  X <- X %>% map_dfc(~ align_peaks(.x, y$x))
-  ppm <- y$x; y <- y$y
+  X <- pmap_dfc(tmp_list, process_spectrum, x = x, acq_info = acq_info)
   X_ref_vector <- X[[ref_template_label]]
   # the linear model
   y <- y - X_ref_vector
@@ -386,7 +398,7 @@ obj_fun2 <- function(x, proc_steps, y, X, acq_info, ref_template_label, mode = "
   fitted <- as.matrix(X) %*% x[1:length(X)] %>%  as.numeric()
   residuals <- y - fitted
   if (mode!="objective"){
-    return(tibble(ppm = ppm, y = y + X_ref_vector, X_full + X_ref_vector, fitted = fitted + X_ref_vector, residuals = residuals) %>% drop_na())
+    return(tibble(ppm = X_org[[ref_template_label]]$x, y = y + X_ref_vector, X_full + X_ref_vector, fitted = fitted + X_ref_vector, residuals = residuals) %>% drop_na())
   } else return(sum(residuals^2, na.rm = TRUE))
 }
 
