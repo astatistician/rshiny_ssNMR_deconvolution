@@ -308,7 +308,9 @@ nloptr_wrapper <- function(data, x_order, obj_fun, param_start, param_constraint
 
 process_spectrum <- function(spec_cplx, proc_steps, proc_steps_order, x, acq_info){
   norm_ind <- FALSE
-  n_points <- length(spec_cplx)
+  n_points <- nrow(spec_cplx)
+  ppm <- spec_cplx$x
+  spec_cplx_vec <- spec_cplx$y
   if (any(str_detect(proc_steps, "norm"))) {
     norm_ind <- TRUE
     proc_steps <- proc_steps %>% str_remove("norm") %>% stri_remove_empty() %>% compact()
@@ -316,7 +318,7 @@ process_spectrum <- function(spec_cplx, proc_steps, proc_steps_order, x, acq_inf
   # apodization (exponential function)
   if ("apod" %in% proc_steps) {
     apod_match_ind <- match("apod", proc_steps)
-    spec_cplx <- zero_fill_apod(x = spec_cplx, size = n_points, LB = x[proc_steps_order[apod_match_ind]] , SW_h = acq_info[2])
+    spec_cplx_vec <- zero_fill_apod(x = spec_cplx_vec, size = n_points, LB = x[proc_steps_order[apod_match_ind]] , SW_h = acq_info[[2]])
   }
   # phase correction
   if (any(proc_steps %in% c("ph0", "ph1"))) {
@@ -324,21 +326,22 @@ process_spectrum <- function(spec_cplx, proc_steps, proc_steps_order, x, acq_inf
     ph1_match_ind <- match("ph1", proc_steps)
     ph0_val <- ifelse(!is.na(ph0_match_ind), x[proc_steps_order[ph0_match_ind]], 0)
     ph1_val <- ifelse(!is.na(ph1_match_ind), x[proc_steps_order[ph1_match_ind]], 0)
-    lin_pred <- get_ph_angle(x = 1 : n_points, int = ph0_val, slope = ph1_val, pivot_point = ppm[which.max(Re(spec_cplx))[1]], n = n_points, ppm = ppm)
-    spec_cplx <- ph_corr(spec_cplx, lin_pred) 
+    lin_pred <- get_ph_angle(x = 1 : n_points, int = ph0_val, slope = ph1_val, pivot_point = ppm[which.max(Re(spec_cplx_vec))[1]], n = n_points, ppm = ppm)
+    spec_cplx_vec <- ph_corr(spec_cplx_vec, lin_pred) 
   }
   # shift
   if ("shift" %in% proc_steps) {
     shift_match_ind <- match("shift", proc_steps)
-    spec_cplx <- shift_horizon(x = ppm, y = Re(spec_cplx), delta = x[proc_steps_order[shift_match_ind]])
+    spec_cplx_vec <- shift_horizon(x = ppm, y = Re(spec_cplx_vec), delta = x[proc_steps_order[shift_match_ind]])
   }
   # normalization
-  if (norm_ind) spec_cplx <- norm_sum(spec_cplx)
+  if (norm_ind) spec_cplx_vec <- norm_sum(spec_cplx_vec)
   # multiplication factor
   if ("multiply" %in% proc_steps) {
     multiply_match_ind <- match("multiply", proc_steps) 
-    spec_cplx <- spec_cplx * x[proc_steps_order[multiply_match_ind]]
+    spec_cplx_vec <- spec_cplx_vec * x[proc_steps_order[multiply_match_ind]]
   }
+  spec_cplx$y <- spec_cplx_vec
   return(spec_cplx)
 }
 
@@ -361,13 +364,20 @@ get_param_index <- function(proc_steps, n_prop) {
   return(x_list)
 }
 
-obj_fun2 <- function(x, proc_steps, y, X, ppm, acq_info, ref_template_label, mode = "objective") {
+align_peaks <- function(spectrum_df, ref_ppm){
+  approx(x = spectrum_df[["x"]], y = spectrum_df[["y"]], xout = ref_ppm)$y
+}
+
+obj_fun2 <- function(x, proc_steps, y, X, acq_info, ref_template_label, mode = "objective") {
   X_org <- X
   x_list <- get_param_index(proc_steps, length(X)-1)
   # run proc_spec for each spectrum in X and y
   y <- process_spectrum(spec_cplx = y, proc_steps = pluck(proc_steps, 1), proc_steps_order = pluck(x_list, 1), x = x, acq_info = acq_info)
   tmp_list <- list(X, proc_steps[-1], x_list[-1])
-  X <- pmap_dfc(tmp_list, process_spectrum, x = x, acq_info = acq_info)
+  X <- pmap(tmp_list, process_spectrum, x = x, acq_info = acq_info)
+  # align (on x-axis) template spectra against the mixture
+  X <- X %>% map_dfc(~ align_peaks(.x, y$x))
+  ppm <- y$x; y <- y$y
   X_ref_vector <- X[[ref_template_label]]
   # the linear model
   y <- y - X_ref_vector
@@ -376,7 +386,7 @@ obj_fun2 <- function(x, proc_steps, y, X, ppm, acq_info, ref_template_label, mod
   fitted <- as.matrix(X) %*% x[1:length(X)] %>%  as.numeric()
   residuals <- y - fitted
   if (mode!="objective"){
-    return(tibble(y = y + X_ref_vector, X_full + X_ref_vector , ppm = ppm, fitted = fitted + X_ref_vector, residuals = residuals) %>% drop_na())
+    return(tibble(ppm = ppm, y = y + X_ref_vector, X_full + X_ref_vector, fitted = fitted + X_ref_vector, residuals = residuals) %>% drop_na())
   } else return(sum(residuals^2, na.rm = TRUE))
 }
 
@@ -405,7 +415,7 @@ get_start_constraints <- function(proc_steps, n_prop){
   return(as_tibble(param_details))
 }
 
-nloptr_wrapper2 <- function(dat, obj_fun, proc_steps, start_constraints, optim_algorithm) {
+nloptr_wrapper2 <- function(y, X, obj_fun, proc_steps, start_constraints, optim_algorithm, acq_info, ref_template_label) {
   results <- nloptr::nloptr(
     x0 = start_constraints$start,
     eval_f = obj_fun2,
@@ -419,16 +429,15 @@ nloptr_wrapper2 <- function(dat, obj_fun, proc_steps, start_constraints, optim_a
       print_level = 0
     ),
     proc_steps = proc_steps,
-    y = dat$y,
-    X = dat$X,
-    ppm = dat$ppm,
-    acq_info = dat$acq_info,
-    ref_template_label = dat$ref_template_label,
+    y = y,
+    X = X,
+    acq_info = acq_info,
+    ref_template_label = ref_template_label,
     mode = "objective"
   )
-  prop_names <- dat$X %>% select(-dat$ref_template_label) %>% names()
-  dat_tmp <- obj_fun2(x = results$solution, proc_steps = proc_steps, y = dat$y, X = dat$X, ppm = dat$ppm, acq_info = dat$acq_info , ref_template_label = dat$ref_template_label, mode = "prediction") %>% drop_na()
-  solution <- list(prop = set_names(results$solution[1 : (length(dat$X)-1)], prop_names), rmse = sqrt(results$objective/length(na.omit(dat_tmp$y))))
+  prop_names <- setdiff(names(X), ref_template_label)
+  dat_tmp <- obj_fun2(x = results$solution, proc_steps = proc_steps, y = y, X = X, acq_info = acq_info , ref_template_label = ref_template_label, mode = "prediction") %>% drop_na()
+  solution <- list(prop = set_names(results$solution[1 : (length(X)-1)], prop_names), rmse = sqrt(results$objective/length(na.omit(dat_tmp$y))))
   return(list(dat = dat_tmp, solution = solution))
 }
 
