@@ -437,7 +437,7 @@ nloptr_wrapper2 <- function(y, X, obj_fun, proc_steps, start_constraints, optim_
       "algorithm" = optim_algorithm,
       "xtol_rel" = 1.0e-10,
       "xtol_abs" = 1.0e-10,
-      "maxeval" = 2000,
+      "maxeval" = 1000,
       print_level = 1
     ),
     proc_steps = proc_steps,
