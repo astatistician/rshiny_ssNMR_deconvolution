@@ -225,11 +225,14 @@ get_ph_angle <- function(x, int, slope, pivot_point, n, ppm) {
 
 #' @export
 shift_horizon <- function(x, y, delta) {
-  approx(x = x, y = y, xout = x + delta)$y
+  approx(x = x, y = y, xout = x + delta)[[2]]
 }
 
 #' @export
-norm_sum <- function(x) Re(x) / sum(Re(x), na.rm = TRUE)
+norm_sum <- function(x) { 
+  rex <- Re(x) 
+  rex / sum(rex, na.rm = TRUE)
+  }
 
 
 #' @export 
@@ -311,12 +314,12 @@ process_spectrum <- function(spec_cplx, proc_steps, proc_steps_order, x, acq_inf
   n_points <- nrow(spec_cplx)
   ppm <- spec_cplx$x
   spec_cplx_vec <- spec_cplx$y
-  if (any(str_detect(proc_steps, "norm"))) {
+  if (any("norm" == proc_steps)) {
     norm_ind <- TRUE
     proc_steps <- proc_steps %>% str_remove("norm") %>% stri_remove_empty() %>% compact()
   }
   # apodization (exponential function)
-  if ("apod" %in% proc_steps) {
+  if (any("apod" == proc_steps)) {
     apod_match_ind <- match("apod", proc_steps)
     spec_cplx_vec <- zero_fill_apod(x = spec_cplx_vec, size = n_points, LB = x[proc_steps_order[apod_match_ind]] , SW_h = acq_info[[2]])
   }
@@ -330,19 +333,18 @@ process_spectrum <- function(spec_cplx, proc_steps, proc_steps_order, x, acq_inf
     spec_cplx_vec <- ph_corr(spec_cplx_vec, lin_pred) 
   }
   # shift
-  if ("shift" %in% proc_steps) {
+  if (any("shift" == proc_steps)) {
     shift_match_ind <- match("shift", proc_steps)
     spec_cplx_vec <- shift_horizon(x = ppm, y = Re(spec_cplx_vec), delta = x[proc_steps_order[shift_match_ind]])
   }
   # normalization
   if (norm_ind) spec_cplx_vec <- norm_sum(spec_cplx_vec)
   # multiplication factor
-  if ("multiply" %in% proc_steps) {
+  if (any("multiply" == proc_steps)) {
     multiply_match_ind <- match("multiply", proc_steps) 
     spec_cplx_vec <- spec_cplx_vec * x[proc_steps_order[multiply_match_ind]]
   }
-  spec_cplx$y <- spec_cplx_vec
-  return(spec_cplx$y)
+  return(spec_cplx_vec)
 }
 
 get_param_index <- function(proc_steps, n_prop) {
@@ -438,7 +440,7 @@ nloptr_wrapper2 <- function(y, X, obj_fun, proc_steps, start_constraints, optim_
       "xtol_rel" = 1.0e-10,
       "xtol_abs" = 1.0e-10,
       "maxeval" = 1000,
-      print_level = 1
+      print_level = 0
     ),
     proc_steps = proc_steps,
     y = y,
