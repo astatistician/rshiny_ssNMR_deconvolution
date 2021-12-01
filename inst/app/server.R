@@ -4,14 +4,14 @@ server <- function(input, output, session) {
 	
 	#options(shiny.reactlog = TRUE)
 	
-	
 ##### Local variable & function definitions:
 	legend_states <- list(TRUE, "legendonly")
 	
 # create a data frame (empty for the time being) for storing the estimated parameters
 	param_defaults_names <- names(param_defaults)
 	preproc_param_names <- param_defaults_names[param_defaults_names %in% c("prop_cr", "ppm_amo", "ppm_mix", "ph0_mix", "ph1_mix")]
-	adv_param_names <- param_defaults_names[param_defaults_names %in% c("add_zeroes", "lb_global", "lb_cr", "optim_algorithm", "ppm_amo_lower", "ppm_amo_upper", "ppm_mix_lower" ,"ppm_mix_upper", "ph0_mix_lower", "ph0_mix_upper", "ph1_mix_lower", "ph1_mix_upper")]
+	adv_param_names <- param_defaults_names[param_defaults_names %in% 
+	                                          c("add_zeroes", "lb_global", "lb_cr", "optim_algorithm", "ppm_amo_lower", "ppm_amo_upper", "ppm_mix_lower" ,"ppm_mix_upper", "ph0_mix_lower", "ph0_mix_upper", "ph1_mix_lower", "ph1_mix_upper")]
 	start_val_names <- param_defaults_names[str_detect(param_defaults_names, "_start")]
 	saved_params <- matrix(ncol = length(param_defaults_names) + 1, nrow = 0); colnames(saved_params) <- c("id", 	param_defaults_names)
 	
@@ -70,6 +70,8 @@ server <- function(input, output, session) {
 				spec_size <- info[length(info)] + input$add_zeroes
 				amo <- amo$data[[1]]
 				ppm <- as.numeric(names(amo))
+				initial_ppm_range <- range(ppm)
+				
 				cr <- tryCatch(read_spectrum(input$path_cr, "spectrum"), error = function(err) return(err))
 				if(class(cr)[1] == "simpleError"){
 					showNotification(paste0("Error loading crystalline spectrum files: ", cr$message), type = "error")
@@ -82,8 +84,25 @@ server <- function(input, output, session) {
 					return(NULL)
 				}
 				mix <- mix$data[[1]]
-				return(list(data.frame(ppm = ppm, amo = amo, cr = cr, mix = mix), info, spec_size))
+				df <-  data.frame(ppm = ppm, amo = amo, cr = cr, mix = mix)
+				
+				if (!any(is.na(c(input$ppm_range1, input$ppm_range2)))) {
+				  if (input$ppm_range1 >= input$ppm_range2) {
+				    showNotification("The lower ppm boundary must be smaller than the upper boundary. The model will be fitted on the entire initial ppm range.", type = "warning") 
+				  } else {
+				    df <- subset(df, ppm >= input$ppm_range1 & ppm <= input$ppm_range2)
+				  }
+				}
+				
+				return(list(df, info, spec_size, initial_ppm_range))
 			}, label = "read in spectra")
+	
+	# 
+	# observeEvent(raw_data, {
+	#   req(raw_data)
+	#   updateNumericInput(session, inputId = "ppm_range1", value = raw_data()$initial_ppm_range[1])
+	#   updateNumericInput(session, inputId = "ppm_range2", value = raw_data()$initial_ppm_range[2])
+	# })
 	
 	# update the pivot point field with the ppm value corresponding to 
 	# the most abundant peak of the selected mixture spectrum
@@ -103,6 +122,7 @@ server <- function(input, output, session) {
 				raw_data <- raw_data()
 				
 				req(raw_data, cancelOutput = TRUE)
+				
 				ppm <- raw_data[[1]]$ppm
 				amo <- raw_data[[1]]$amo
 				cr <- raw_data[[1]]$cr
@@ -245,10 +265,12 @@ server <- function(input, output, session) {
 	       update_n_inputs(tmp_name, param_defaults %>% discard(is.character) %>% unlist())
 	       updateNumericInput(session, inputId = "pivot_point", value = max_peak_of_mix())
 	       updateTextInput(session, inputId = "optim_algorithm", value = param_defaults[["optim_algorithm"]])
+	       updateNumericInput(session, inputId = "ppm_range1", value = param_defaults$ppm_range1)
+	       updateNumericInput(session, inputId = "ppm_range2", value = param_defaults$ppm_range2)
 			}, label = "reset all user inputs to the default values")
 	
 	# write the estimated parameters to a csv file
-	track_inputs_rv <- reactiveValues(x = saved_params, count_rows=0)
+	track_inputs_rv <- reactiveValues(x = saved_params, count_rows = 0)
 	
 	observeEvent(c(input$path_amo, input$path_cr, input$path_mix), {
 				track_inputs_rv$count_rows <- 0
@@ -260,6 +282,7 @@ server <- function(input, output, session) {
 				curr_input_vals <- reactiveValuesToList(input)
 				next_row <- character(ncol(saved_params)); names(next_row) <- colnames(saved_params)
 				# first, assign default values
+				
 				next_row[param_defaults_names] <- unlist(param_defaults)
 				vals <- curr_input_vals[param_defaults_names] %>% compact() %>% unlist()
 				# next, update them with input values
@@ -396,7 +419,7 @@ server <- function(input, output, session) {
 				updateSelectInput(session, "path_amo", choices = dat[["path_amo"]])
 				updateSelectInput(session, "path_cr", choices = dat[["path_cr"]])
 				updateSelectInput(session, "path_mix", choices = dat[["path_mix"]])
-				param_selected <- c(preproc_param_names, adv_param_names[adv_param_names != "optim_algorithm"])
+				param_selected <- c(preproc_param_names, adv_param_names[adv_param_names != "optim_algorithm"], "ppm_range1", "ppm_range2")
 				update_n_inputs(param_selected, dat[param_selected])
 				updateTextInput(session, inputId = "optim_algorithm", value = as.character(dat["optim_algorithm"]))
 			}, label = "load in estimated results")

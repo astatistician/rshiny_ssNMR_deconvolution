@@ -12,6 +12,16 @@ ui <- fluidPage(
 								selectInput("path_mix", "Select the mixture spectrum path", choices="",  selectize=FALSE)
 						),
 						wellPanel(
+						    div(style="display:inline-block",
+						        numericInput(inputId = "ppm_range1", label = "Select lower ppm boundary", value = param_defaults$ppm_range1, step = 1, width = 140) %>% 
+						          bsplus::shinyInput_label_embed(bsplus::shiny_iconlink() %>%
+						                                           bsplus::bs_embed_tooltip(
+						                                             title = "By default, ppm boundaries are set to invisible NA values, meaning no zoom into particular ppm region.", placement ="left"
+						                                             )
+						          )
+						        ,numericInput(inputId = "ppm_range2", label = "Select upper ppm boundary", value = param_defaults$ppm_range2, step = 1, width = 140)
+						        ),
+						    #sliderInput("ppm_range", label = "Choose ppm range", min = -1000, max = 1000, value = param_defaults$ppm_range, step = 0.5),
 								numericInput("ppm_amo", label = "Chemical shift (ppm) of amorphous", value = param_defaults$ppm_amo, min = -50, max = 50, step = 0.01),
 								numericInput("ppm_mix", label = "Chemical shift (ppm) of mixture", value = param_defaults$ppm_mix, min = -50, max = 50, step = 0.01),
 								numericInput("ph0_mix", label = "PH0 (degrees) of mixture", value = param_defaults$ph0_mix, min = -180, max = 180, step = 0.01),
