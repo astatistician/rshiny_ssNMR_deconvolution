@@ -321,7 +321,7 @@ process_spectrum <- function(spec_cplx, proc_steps, proc_steps_order, x, acq_inf
   # apodization (exponential function)
   if (any("apod" == proc_steps)) {
     apod_match_ind <- match("apod", proc_steps)
-    spec_cplx_vec <- zero_fill_apod(x = spec_cplx_vec, size = n_points, LB = x[proc_steps_order[apod_match_ind]] , SW_h = acq_info[[2]])
+    spec_cplx_vec <- zero_fill_apod(x = spec_cplx_vec, size = n_points, LB = x[proc_steps_order[apod_match_ind]] , SW_h = acq_info[["SW_p"]])
   }
   # phase correction
   if (any(proc_steps %in% c("ph0", "ph1"))) {
