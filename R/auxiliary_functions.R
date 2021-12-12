@@ -286,7 +286,7 @@ nloptr_wrapper <- function(data, x_order, obj_fun, param_start, param_constraint
       "algorithm" = optim_algorithm,
       "xtol_rel" = 1.0e-10,
       "xtol_abs" = 1.0e-10,
-      "maxeval" = 2000,
+      "maxeval" = 1500,
       print_level = 0
     ),
     x_order = x_order,
@@ -415,11 +415,12 @@ get_start_constraints <- function(proc_steps, n_prop){
   if (length(proc_steps) >= 1){
     # other processing params
     default_details <- tribble(~name, ~start, ~lb, ~ub,
-                               "apod", 0, 0, 1000,
-                               "ph0", 0, 0, 2*pi,
-                               "ph1", 0, 0, 2*pi,
+                               "apod", 0, 0, 100,
+                               "ph0", 0, -2 * pi, 2 * pi,
+                               "ph1", 0, -10, 10,
                                "shift", 0, -0.2, 0.2,
                                "multiply", 1, 0, 1000)
+
     param_details[-(1 : n_prop), ] <- map2_dfr(unlist(proc_steps), unlist(x_list), ~{
       ind <- match(.x, default_details$name)
       default_details[ind, -1]
@@ -439,7 +440,7 @@ nloptr_wrapper2 <- function(y, X, obj_fun, proc_steps, start_constraints, optim_
       "algorithm" = optim_algorithm,
       "xtol_rel" = 1.0e-10,
       "xtol_abs" = 1.0e-10,
-      "maxeval" = 1000,
+      "maxeval" = 1500,
       print_level = 0
     ),
     proc_steps = proc_steps,
