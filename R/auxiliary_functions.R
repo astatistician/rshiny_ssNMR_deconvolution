@@ -390,7 +390,13 @@ obj_fun2 <- function(x, proc_steps, y, X, acq_info, ref_template_label, mode = "
   x_list <- get_param_index(proc_steps, length(X)-1)
   # run proc_spec for each spectrum in X and y
   y <- process_spectrum(spec_cplx = y, proc_steps = pluck(proc_steps, 1), proc_steps_order = pluck(x_list, 1), x = x, acq_info = acq_info)
-  tmp_list <- list(X, proc_steps[-1], x_list[-1])
+  
+  proc_steps_X <- proc_steps[-1]; x_list_X <- x_list[-1]
+  # make sure that columns in X match labels in proc_steps
+  ord <- match(names(X), names(proc_steps_X))
+  X <- X[ord]
+  tmp_list <- list(X, proc_steps_X, x_list_X)
+  
   X <- pmap_dfc(tmp_list, process_spectrum, x = x, acq_info = acq_info)
   X_ref_vector <- X[[ref_template_label]]
   # the linear model
