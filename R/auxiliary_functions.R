@@ -410,11 +410,22 @@ obj_fun2 <- function(x, proc_steps, y, X, acq_info, ref_template_label, mode = "
   } else return(sum(residuals^2, na.rm = TRUE))
 }
 
-get_start_constraints <- function(proc_steps, n_prop){
-  proc_steps <- proc_steps %>% map(~str_remove(.x, "norm") %>% stri_remove_empty()) %>% compact()
+get_start_constraints <- function(y, proc_steps, n_prop, do_ph0_pepsnmr = FALSE){
+  proc_steps <- map(proc_steps, ~str_remove(.x, "norm") %>% stri_remove_empty()) %>% compact()
   if (length(proc_steps) >= 1){
     x_list <- get_param_index(proc_steps, n_prop)
   } else x_list <- list()
+  
+  # assumption - template spectra come preprocessed manually, so no need for using
+  # PepsNMR phase correction on them, just on the mixture
+  if (do_ph0_pepsnmr) {
+    tmp <- matrix(y$y, nrow = 1)
+    colnames(tmp) <- y$x
+    ph0_pepsnmr_angle <- PepsNMR::ZeroOrderPhaseCorrection(tmp, type.zopc = "rms", returnAngle = TRUE)$Angle
+    # the first occurence is taken, this corresponds to the mixture
+    ph0_pepsnmr_angle_index <- unlist(x_list)[which("ph0" == unlist(proc_steps))[1]]
+  }
+  
   param_details <- matrix(NA, nrow = max(c(unlist(x_list), 1)), ncol = 3)
   # prop
   param_details[1 : n_prop, ] <- matrix(rep(c(0, 0, 1), n_prop), byrow = TRUE, ncol = 3)
@@ -433,7 +444,15 @@ get_start_constraints <- function(proc_steps, n_prop){
     }) %>% as.matrix()
   }
   colnames(param_details) <- c("start", "lb", "ub")
-  return(as_tibble(param_details))
+  
+  if (do_ph0_pepsnmr) {
+    param_details[ph0_pepsnmr_angle_index, 1] <- ph0_pepsnmr_angle
+  }
+  
+  if (do_ph0_pepsnmr) ph0_pepsnmr_param_index <- ph0_pepsnmr_angle_index else ph0_pepsnmr_param_index <- NULL
+  
+  return(list(df = as_tibble(param_details), 
+              ph0_pepsnmr_index = ph0_pepsnmr_param_index))
 }
 
 nloptr_wrapper2 <- function(y, X, obj_fun, proc_steps, start_constraints, optim_algorithm, acq_info, ref_template_label) {
