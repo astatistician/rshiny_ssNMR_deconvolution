@@ -12,16 +12,11 @@ ui <- fluidPage(
 								selectInput("path_mix", "Select the mixture spectrum path", choices="",  selectize=FALSE)
 						),
 						wellPanel(
-						    div(style="display:inline-block",
 						        numericInput(inputId = "ppm_range1", label = "Select lower ppm boundary", value = param_defaults$ppm_range1, step = 1, width = 140) %>% 
 						          bsplus::shinyInput_label_embed(bsplus::shiny_iconlink() %>%
-						                                           bsplus::bs_embed_tooltip(
-						                                             title = "By default, ppm boundaries are set to invisible NA values, meaning no zoom into particular ppm region.", placement ="left"
-						                                             )
+						                                           bsplus::bs_embed_tooltip(title = "By default, ppm boundaries are set to invisible NA values, meaning no zoom into particular ppm region.", placement ="left")
 						          )
-						        ,numericInput(inputId = "ppm_range2", label = "Select upper ppm boundary", value = param_defaults$ppm_range2, step = 1, width = 140)
-						        ),
-						    #sliderInput("ppm_range", label = "Choose ppm range", min = -1000, max = 1000, value = param_defaults$ppm_range, step = 0.5),
+						        ,numericInput(inputId = "ppm_range2", label = "Select upper ppm boundary", value = param_defaults$ppm_range2, step = 1, width = 140),
 								numericInput("ppm_amo", label = "Chemical shift (ppm) of amorphous", value = param_defaults$ppm_amo, min = -50, max = 50, step = 0.01),
 								numericInput("ppm_mix", label = "Chemical shift (ppm) of mixture", value = param_defaults$ppm_mix, min = -50, max = 50, step = 0.01),
 								numericInput("ph0_mix", label = "PH0 (degrees) of mixture", value = param_defaults$ph0_mix, min = -180, max = 180, step = 0.01),
@@ -41,8 +36,8 @@ ui <- fluidPage(
 												div(style="display:inline-block",numericInput(inputId="ph0_mix_lower", label="Lower PH0 (degrees)", value = param_defaults$ph0_mix_lower, min = 0, max = 360, step = 0.01, width = 145)),
 												div(style="display:inline-block",numericInput(inputId="ph0_mix_upper", label="Upper PH0", value = param_defaults$ph0_mix_upper, min = 0, max = 360, step = 0.01, width = 145)),
 												br(),
-												div(style="display:inline-block",numericInput(inputId="ph1_mix_lower", label="Lower PH1 (degrees)", value = param_defaults$ph1_mix_lower, min = 0, max = 360, step = 0.01, width = 145)),
-												div(style="display:inline-block",numericInput(inputId="ph1_mix_upper", label="Upper PH1", value = param_defaults$ph1_mix_upper, min = 0, max = 360, step = 0.01, width = 145)),
+												div(style="display:inline-block",numericInput(inputId="ph1_mix_lower", label="Lower PH1 (degrees)", value = param_defaults$ph1_mix_lower, min = 2 * param_defaults$ph1_mix_lower, max = 0, step = 0.01, width = 145)),
+												div(style="display:inline-block",numericInput(inputId="ph1_mix_upper", label="Upper PH1", value = param_defaults$ph1_mix_upper, min = 0, max = 2 * param_defaults$ph1_mix_upper, step = 0.01, width = 145)),
 												br(),
 												div(style="display:inline-block",numericInput(inputId="ppm_amo_lower", label="Lower ppm shift amorphous", value = param_defaults$ppm_amo_lower, min = -50, max = 50, step = 0.01, width = 145)),
 												div(style="display:inline-block",numericInput(inputId="ppm_amo_upper", label="Upper ppm shift amorphous", value = param_defaults$ppm_amo_upper, min = -50, max = 50, step = 0.01, width = 145)),
