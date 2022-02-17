@@ -9,7 +9,7 @@ Authors@R:
 Description: What the package does (one paragraph).
 License: GPL-3
 Imports: shiny, shinyBS, plotly, tidyverse, PepsNMR, stringi, readxl,
-        tibble, nnls, nloptr
+        tibble, nnls, nloptr, bsplus
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
