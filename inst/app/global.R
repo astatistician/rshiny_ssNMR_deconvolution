@@ -8,7 +8,9 @@ to_deg_const <- 180/pi
 to_rad_const <- pi/180
 
 # this vector determines the order of parameters that will be estimated via nloptr (parameters, constrains, starting values etc.)
-estim_order = c("prop_cr", "ph0_mix", "ph1_mix", "ppm_amo", "ppm_mix")
+#estim_order = c("prop_cr", "ph0_mix", "ph1_mix", "ppm_amo", "ppm_mix")
+estim_order = c("prop_cr", "ph0_mix", "ph1_mix", "ppm_mix", "ppm_amo")
+spectra_name <- c("amo", "cr", "mix")
 
 param_defaults <- list(
   path_amo = "",	

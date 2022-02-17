@@ -61,36 +61,45 @@ server <- function(input, output, session) {
 	
 	# read in source data
 	raw_data <- reactive({
+	      # 3 element list (because 2 templaes and 1 mixture)
+	      info <- vector('list', 3); names(info) <- spectra_name
 				amo <- tryCatch(read_spectrum(input$path_amo, "spectrum"), error = function(err) return(err))
 				if(class(amo)[1] == "simpleError"){
 					showNotification(paste0("Error loading amorphous spectrum files: ", amo$message), type = "error")
 					return(NULL)
 				}
-				info <- amo[[2]]
-				spec_size <- info[length(info)] + input$add_zeroes
+				info$amo <- amo[[2]]
+				# all three spectra should have eq"ual length
+				spec_size <- info$amo[1, "FTSIZE"] + input$add_zeroes
 				amo <- amo$data[[1]]
-				ppm <- as.numeric(names(amo))
-				initial_ppm_range <- range(ppm)
+				ppm_df <- as.data.frame(matrix(NA, nrow = length(amo), ncol = length(info)))
+				names(ppm_df) <- paste0("ppm_",spectra_name)
+				ppm_df$ppm_amo <- as.numeric(names(amo))
 				
 				cr <- tryCatch(read_spectrum(input$path_cr, "spectrum"), error = function(err) return(err))
 				if(class(cr)[1] == "simpleError"){
 					showNotification(paste0("Error loading crystalline spectrum files: ", cr$message), type = "error")
 					return(NULL)
 				}
+				info$cr <- cr[[2]]
 				cr <- cr$data[[1]]
+				ppm_df$ppm_cr <- as.numeric(names(cr))
 				mix <- tryCatch(read_spectrum(input$path_mix, "spectrum"), error = function(err) return(err))
 				if(class(mix)[1] == "simpleError"){
 					showNotification(paste0("Error loading mixture spectrum files: ", mix$message), type = "error")
 					return(NULL)
 				}
+				info$mix <- mix[[2]]
 				mix <- mix$data[[1]]
-				df <-  data.frame(ppm = ppm, amo = amo, cr = cr, mix = mix)
+				ppm_df$ppm_mix <- as.numeric(names(mix))
+				df <-  bind_cols(ppm_df, data.frame(amo = amo, cr = cr, mix = mix))
+				initial_ppm_range <- range(ppm_df)
 				
 				if (!any(is.na(c(input$ppm_range1, input$ppm_range2)))) {
 				  if (input$ppm_range1 >= input$ppm_range2) {
 				    showNotification("The lower ppm boundary must be smaller than the upper boundary. The model will be fitted on the entire initial ppm range.", type = "warning") 
 				  } else {
-				    df <- subset(df, ppm >= input$ppm_range1 & ppm <= input$ppm_range2)
+				    df <- subset(df, apply(ppm_df, 1, function(x) all(x >= input$ppm_range1 & x <= input$ppm_range2)))
 				  }
 				}
 				
@@ -108,7 +117,7 @@ server <- function(input, output, session) {
 	# the most abundant peak of the selected mixture spectrum
 	max_peak_of_mix <- reactive({
 	  tmp <- raw_data()
-	  tmp[[1]]$ppm[which.max(abs(Re(tmp[[1]]$mix)))]
+	  tmp[[1]]$ppm_mix[which.max(abs(Re(tmp[[1]]$mix)))]
 	  })
 	
 	observeEvent(input$path_mix, {
@@ -120,10 +129,9 @@ server <- function(input, output, session) {
 	# process all three spectra at once (i.e. zero filling and apodization)
 	proc_data <- reactive({
 				raw_data <- raw_data()
-				
 				req(raw_data, cancelOutput = TRUE)
 				
-				ppm <- raw_data[[1]]$ppm
+				ppm_amo <- raw_data[[1]]$ppm_amo; ppm_cr <- raw_data[[1]]$ppm_cr; ppm_mix <- raw_data[[1]]$ppm_mix;
 				amo <- raw_data[[1]]$amo
 				cr <- raw_data[[1]]$cr
 				mix <- raw_data[[1]]$mix
@@ -131,21 +139,27 @@ server <- function(input, output, session) {
 				spec_size <- raw_data[[3]]
 				
 				if (input$add_zeroes > 0 || input$lb_global > 0) {
-					swp <- info[2] / info[3]
-					dppm <- swp / (spec_size - 1)
-					ppm <- info[1]
-					ppm <- seq(info[1], (info[1] - swp), by = -dppm)
-					amo <- zero_fill_apod(amo, spec_size, input$lb_global, info[2])
-					cr <- zero_fill_apod(cr, spec_size, input$lb_global, info[2])
-					mix <- zero_fill_apod(mix, spec_size, input$lb_global, info[2])
+				  
+				  ppm_amo <- ppm_zero_fill_apod(ppm = ppm_amo, info = info$amo, spec_size)
+				  ppm_cr <- ppm_zero_fill_apod(ppm = ppm_cr, info = info$cr, spec_size)
+				  ppm_mix <- ppm_zero_fill_apod(ppm = ppm_mix, info = info$mix, spec_size)
+				  
+					# swp <- info[2] / info[3]
+					# dppm <- swp / (spec_size - 1)
+					# ppm <- info[1]
+					# ppm <- seq(info[1], (info[1] - swp), by = -dppm)
+					
+					amo <- zero_fill_apod(amo, spec_size, input$lb_global, info$amo[2])
+					cr <- zero_fill_apod(cr, spec_size, input$lb_global, info$cr[2])
+					mix <- zero_fill_apod(mix, spec_size, input$lb_global, info$mix[2])
 				} 
 				
 				# additional line broadening of the crystalline template
 				if (input$lb_cr > 0) {
-					cr <- zero_fill_apod(cr, spec_size, input$lb_cr, info[2])
+					cr <- zero_fill_apod(cr, spec_size, input$lb_cr, info$cr[2])
 				}
 				
-				return(list(data.frame(ppm = ppm, amo = amo, cr = cr, mix = mix), info, spec_size))
+				return(list(data.frame(ppm_amo = ppm_amo, amo = amo, ppm_cr = ppm_cr, cr = cr, ppm_mix = ppm_mix, mix = mix), info, spec_size))
 			}, label = "process three spectra (zero fill, apodization)")
 	
 	fit_bn_rv <- reactiveValues(counter=0)
@@ -163,22 +177,25 @@ server <- function(input, output, session) {
 				on.exit(removeNotification(notify_id), add = TRUE)
 				
 				proc_data <- proc_data()
-				ppm <- proc_data[[1]]$ppm
+				
+				ppm_amo <- proc_data[[1]]$ppm_amo
+				ppm_cr <- proc_data[[1]]$ppm_cr
+				ppm_mix <- proc_data[[1]]$ppm_mix
 				amo <- proc_data[[1]]$amo
 				cr <- proc_data[[1]]$cr
 				mix <- proc_data[[1]]$mix
 				
 				if (input$estim_mode %in% c("only_prop", "explicit")) {
-				  amo <- shift_horizon(x = ppm, y = Re(amo), delta = input$ppm_amo)
+				  amo <- shift_horizon(x = ppm_amo, y = Re(amo), delta = input$ppm_amo)
 				  amo <- norm_sum(amo)
 				  cr <- norm_sum(cr)
-				  N <- length(ppm)
-				  lin_pred <- get_ph_angle(1:N, int = input$ph0_mix * to_rad_const, slope = input$ph1_mix * to_rad_const, pivot_point = input$pivot_point, n = N, ppm)
+				  N <- length(ppm_amo)
+				  lin_pred <- get_ph_angle(1:N, int = input$ph0_mix * to_rad_const, slope = input$ph1_mix * to_rad_const, pivot_point = input$pivot_point, n = N, ppm_mix)
 				  mix <- ph_corr(mix, lin_pred)
-				  mix <- shift_horizon(x = ppm, y = Re(mix), delta = input$ppm_mix)
+				  mix <- shift_horizon(x = ppm_mix, y = Re(mix), delta = input$ppm_mix)
 				  mix <- norm_sum(mix)
 				  
-				  model_input <- data.frame(ppm = ppm, amo = amo, cr = cr, mix = mix)
+				  model_input <- data.frame(ppm_amo = ppm_amo, amo = amo, ppm_cr = ppm_cr, cr = cr, ppm_mix = ppm_mix, mix = mix)
 				  na_ind <- is.na(model_input$amo) | is.na(model_input$mix)
 				  model_input <- model_input[!na_ind, ]
 				  
@@ -209,11 +226,11 @@ server <- function(input, output, session) {
 				  # if ph0_angle==0 then take pepsNMR PH0 as a starting value for PH0
 				  if (input$do_PH0_PepsNMR) {
 				    tmp <- matrix(mix, nrow = 1)
-				    colnames(tmp) <- ppm
+				    colnames(tmp) <- ppm_mix
 				    ph0_angle <- ZeroOrderPhaseCorrection(tmp, type.zopc = "max", returnAngle = TRUE)$Angle * to_deg_const
 				  }
 				  
-				  model_input <- data.frame(ppm = ppm, amo = amo, cr = cr, mix = mix)
+				  model_input <- data.frame(ppm_amo = ppm_amo, amo = amo, ppm_cr = ppm_cr, cr = cr, ppm_mix = ppm_mix, mix = mix)
 				  na_ind <- is.na(model_input$amo) | is.na(model_input$mix)
 				  model_input <- model_input[!na_ind, ]
 				  
@@ -389,8 +406,8 @@ server <- function(input, output, session) {
 				paste0(
 						"Estimated crystalline proportion [0-1 interval] ", round(model_fit()$solution["prop_cr"], 7),
 						"\nrmse (x10^6):", round(10^6 * model_fit()$solution["rmse"], 7),
-						"\nInitial spectrum size:", isolate(raw_data()[[2]][length(raw_data()[[2]])]),
-						"\nFinal spectrum size:", isolate(raw_data()[[2]][length(raw_data()[[2]])] + input$add_zeroes)
+						"\nInitial spectrum size:", isolate(raw_data()[[2]]$amo[1, "FTSIZE"]),
+						"\nFinal spectrum size:", isolate(raw_data()[[2]]$amo[1, "FTSIZE"] + input$add_zeroes)
 				)	
 			})
 	
