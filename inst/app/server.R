@@ -61,9 +61,9 @@ server <- function(input, output, session) {
 	
 	# read in source data
 	raw_data <- reactive({
-	      # 3 element list (because 2 templaes and 1 mixture)
+	      # 3 element list (because 2 templates and 1 mixture)
 	      info <- vector('list', 3); names(info) <- spectra_name
-				amo <- tryCatch(read_spectrum(input$path_amo, "spectrum"), error = function(err) return(err))
+				amo <- tryCatch(read_spectrum(input$path_amo), error = function(err) return(err))
 				if(class(amo)[1] == "simpleError"){
 					showNotification(paste0("Error loading amorphous spectrum files: ", amo$message), type = "error")
 					return(NULL)
@@ -76,7 +76,7 @@ server <- function(input, output, session) {
 				names(ppm_df) <- paste0("ppm_",spectra_name)
 				ppm_df$ppm_amo <- as.numeric(names(amo))
 				
-				cr <- tryCatch(read_spectrum(input$path_cr, "spectrum"), error = function(err) return(err))
+				cr <- tryCatch(read_spectrum(input$path_cr), error = function(err) return(err))
 				if(class(cr)[1] == "simpleError"){
 					showNotification(paste0("Error loading crystalline spectrum files: ", cr$message), type = "error")
 					return(NULL)
@@ -84,7 +84,7 @@ server <- function(input, output, session) {
 				info$cr <- cr[[2]]
 				cr <- cr$data[[1]]
 				ppm_df$ppm_cr <- as.numeric(names(cr))
-				mix <- tryCatch(read_spectrum(input$path_mix, "spectrum"), error = function(err) return(err))
+				mix <- tryCatch(read_spectrum(input$path_mix), error = function(err) return(err))
 				if(class(mix)[1] == "simpleError"){
 					showNotification(paste0("Error loading mixture spectrum files: ", mix$message), type = "error")
 					return(NULL)

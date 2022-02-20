@@ -1,60 +1,13 @@
 # reads in spectral data (a vectorized function - multiple spectra at once)
-# Arguments:
-# type: "spectrum", "fid", or "text".
 # path: a character vector, length>=1. If type is set to "spectrum", then path to the folder contating "1r" and "1i" is expected
 #       (for Bruker data this is usually something like X\Y\pdata\Z, where X,Y,Z correspond to different experiment, spectra, processed files etc.) )
-#       If the type is set to "fid", the path should get you to the folder with the fid file of interest.
-#       If the type is set to, the path should lead to the text file
-# type
 
-# Value: document the output later on
 #' @export 
-read_spectrum <- function(path, type) {
+read_spectrum <- function(path) {
   
-  type <- match.arg(type, c("spectrum", "fid", "text"))
+    n_files <- length(path)
+    data_out <- vector("list", n_files)
   
-  n_files <- length(path)
-  data_out <- vector("list", n_files)
-  
-  if (type == "fid") {
-    params <- c("TD", "BYTORDA", "DIGMOD", "DECIM", "DSPFVS", "SW_h", "SW", "O1", "GRPDLY")
-    info_out <- matrix(nrow = n_files, ncol = length(params) + 1)
-    colnames(info_out) <- c(params, "DW")
-    
-    for (i in 1:n_files) {
-      x1 <- readLines(paste0(path[i], "/acqus"))
-      x2 <- strsplit(x1, "=")
-      x3 <- lapply(x2, function(x) {
-        tmp <- x %>%
-          stri_replace_all("", regex = "#*\\$*") %>%
-          stri_trim_both()
-      })
-      
-      params_all <- unlist(lapply(x3, function(x) x[1]))
-      values_all <- unlist(lapply(x3, function(x) x[2]))
-      params_ind <- match(params, params_all)
-      values <- as.numeric(values_all[params_ind])
-      values <- c(values, 1 / (2 * values[params == "SW_h"]))
-      
-      info_out[i, ] <- values
-      endianness <- ifelse(info_out[, "BYTORDA"] != 0, "big", "little")
-      
-      fid <- readBin(paste0(path[i], "/fid"),
-                     what = "int", n = info_out[, "TD"],
-                     size = 4L, endian = endianness
-      )
-      
-      fid <- complex(
-        real = fid[seq(from = 1, to = info_out[i, "TD"], by = 2)],
-        imaginary = fid[seq(from = 2, to = info_out[i, "TD"], by = 2)]
-      )
-      time_vec <- seq(0, (length(fid) - 1) * info_out[i, "DW"], by = info_out[i, "DW"])
-      names(fid) <- time_vec
-      data_out[[i]] <- fid
-    }
-    
-    return(list(data = data_out, info = info_out))
-  } else if (type == "spectrum") {
     params <- c("OFFSET", "SW_p", "SF", "SI", "BYTORDP", "NC_proc", "FTSIZE")
     info_out <- matrix(nrow = n_files, ncol = length(params))
     colnames(info_out) <- c(params)
@@ -91,66 +44,17 @@ read_spectrum <- function(path, type) {
       data_out[[i]] <- spec
     }
     return(list(data = data_out, info = info_out))
-  } else if (type == "text") {
-    for (i in 1:n_files) {
-      tmp_spec <- read.table(path[i], sep = " ", header = FALSE)
-      data_out[[i]] <- tmp_spec[, 2]
-      names(data_out[[i]]) <- tmp_spec[, 1]
-    }
-    return(list(data = data_out))
-  }
 }
 
 # Same as read_spectrum but this version is only needed in case of client-server file interaction
 #' @export 
 read_spectrum2 <- function(filesDF, type) {
   
-  type <- match.arg(type, c("spectrum", "fid", "text"))
+    n_files <- 1
+    data_out <- vector("list", n_files)
+    fileNames <- filesDF$name
+    filePaths <- filesDF$datapath
   
-  n_files <- 1
-  data_out <- vector("list", n_files)
-  fileNames <- filesDF$name
-  filePaths <- filesDF$datapath
-  
-  if (type == "fid") {
-    params <- c("TD", "BYTORDA", "DIGMOD", "DECIM", "DSPFVS", "SW_h", "SW", "O1", "GRPDLY")
-    info_out <- matrix(nrow = n_files, ncol = length(params) + 1)
-    colnames(info_out) <- c(params, "DW")
-    
-    for (i in 1:n_files) {
-      x1 <- readLines(filePaths[grep("acqus", fileNames)])
-      x2 <- strsplit(x1, "=")
-      x3 <- lapply(x2, function(x) {
-        tmp <- x %>%
-          stri_replace_all("", regex = "#*\\$*") %>%
-          stri_trim_both()
-      })
-      
-      params_all <- unlist(lapply(x3, function(x) x[1]))
-      values_all <- unlist(lapply(x3, function(x) x[2]))
-      params_ind <- match(params, params_all)
-      values <- as.numeric(values_all[params_ind])
-      values <- c(values, 1 / (2 * values[params == "SW_h"]))
-      
-      info_out[i, ] <- values
-      endianness <- ifelse(info_out[, "BYTORDA"] != 0, "big", "little")
-      
-      fid <- readBin(filePaths[grep("fid", fileNames)],
-                     what = "int", n = info_out[, "TD"],
-                     size = 4L, endian = endianness
-      )
-      
-      fid <- complex(
-        real = fid[seq(from = 1, to = info_out[i, "TD"], by = 2)],
-        imaginary = fid[seq(from = 2, to = info_out[i, "TD"], by = 2)]
-      )
-      time_vec <- seq(0, (length(fid) - 1) * info_out[i, "DW"], by = info_out[i, "DW"])
-      names(fid) <- time_vec
-      data_out[[i]] <- fid
-    }
-    
-    return(list(data = data_out, info = info_out))
-  } else if (type == "spectrum") {
     params <- c("OFFSET", "SW_p", "SF", "SI", "BYTORDP", "NC_proc", "FTSIZE")
     info_out <- matrix(nrow = n_files, ncol = length(params))
     colnames(info_out) <- c(params)
@@ -187,14 +91,6 @@ read_spectrum2 <- function(filesDF, type) {
       data_out[[i]] <- spec
     }
     return(list(data = data_out, info = info_out))
-  } else if (type == "text") {
-    for (i in 1:n_files) {
-      tmp_spec <- read.table(path[i], sep = " ", header = FALSE)
-      data_out[[i]] <- tmp_spec[, 2]
-      names(data_out[[i]]) <- tmp_spec[, 1]
-    }
-    return(list(data = data_out, info = NULL))
-  }
 }
 
 #' @export 
