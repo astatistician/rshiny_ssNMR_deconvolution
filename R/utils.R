@@ -39,7 +39,7 @@ read_spectrum <- function(path) {
                         what = "int", n = nspec,
                         size = 4L, endian = "little"
       )
-      spec <- complex(real = spec_r, imaginar = spec_i)
+      spec <- complex(real = spec_r, imaginary = spec_i)
       names(spec) <- ppm
       data_out[[i]] <- spec
     }
@@ -86,7 +86,7 @@ read_spectrum2 <- function(filesDF, type) {
                         what = "int", n = nspec,
                         size = 4L, endian = "little"
       )
-      spec <- complex(real = spec_r, imaginar = spec_i)
+      spec <- complex(real = spec_r, imaginary = spec_i)
       names(spec) <- ppm
       data_out[[i]] <- spec
     }
