@@ -38,7 +38,6 @@ param_defaults <- list(
   ph0_mix_upper	= 360,
   ph1_mix_lower	= -10 * to_deg_const,
   ph1_mix_upper	= 10 * to_deg_const,
-  #ppm_range = c(-500, 500),
   ppm_range1 = NA,
   ppm_range2 =  NA,
   prop_cr_start = 0,

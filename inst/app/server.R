@@ -106,13 +106,6 @@ server <- function(input, output, session) {
 				return(list(df, info, spec_size, initial_ppm_range))
 			}, label = "read in spectra")
 	
-	# 
-	# observeEvent(raw_data, {
-	#   req(raw_data)
-	#   updateNumericInput(session, inputId = "ppm_range1", value = raw_data()$initial_ppm_range[1])
-	#   updateNumericInput(session, inputId = "ppm_range2", value = raw_data()$initial_ppm_range[2])
-	# })
-	
 	# update the pivot point field with the ppm value corresponding to 
 	# the most abundant peak of the selected mixture spectrum
 	max_peak_of_mix <- reactive({
@@ -144,11 +137,6 @@ server <- function(input, output, session) {
 				  ppm_cr <- ppm_zero_fill_apod(ppm = ppm_cr, info = info$cr, spec_size)
 				  ppm_mix <- ppm_zero_fill_apod(ppm = ppm_mix, info = info$mix, spec_size)
 				  
-					# swp <- info[2] / info[3]
-					# dppm <- swp / (spec_size - 1)
-					# ppm <- info[1]
-					# ppm <- seq(info[1], (info[1] - swp), by = -dppm)
-					
 					amo <- zero_fill_apod(amo, spec_size, input$lb_global, info$amo[2])
 					cr <- zero_fill_apod(cr, spec_size, input$lb_global, info$cr[2])
 					mix <- zero_fill_apod(mix, spec_size, input$lb_global, info$mix[2])
@@ -353,10 +341,9 @@ server <- function(input, output, session) {
 	  event_data("plotly_relayout", source = "p1")
 	  })
 	
-	# event for retaining only selected lines between data recalulcations in plotly graph
+	# event for retaining only selected lines between data recalculcations in the plotly graph
 	legend_click <- reactive({
 	  # to avoid warnings (https://github.com/ropensci/plotly/issues/1528)
-	  #req(any(unlist(lapply(plot_object()$x$data, function(x) is.null(x$visible)))))
 	  event_data("plotly_legendclick", source = "p1")
 	  })
 	
@@ -380,10 +367,10 @@ server <- function(input, output, session) {
 	
 	plot_object <- eventReactive(input$fit_bn, {
 	  req(model_fit())
-	  p <- plot_model_fit(model_fit())
+	  p <- plot_model_fit(model_fit()) 
 	  # the output of plotly_relayout changes depending on the action: if you zoom in
 	  # xaxis.range[0], xaxis.range[1], yaxis.range[0],	yaxis.range[1] values will be available
-	  # if you don't zoom in, the output will be NULL or other some other named vectors of length different than 4
+	  # if you don't zoom in, the output will be NULL or some other named vectors of length different than 4
 	  if (is.null(zoom()) | length(zoom()) != 4) {
 	    p <- layout(p, xaxis = list(zeroline = FALSE, autorange = "reversed", title = "ppm"), yaxis = list(title = "intensity"))
 	  } else {
