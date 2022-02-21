@@ -1,0 +1,20 @@
+Package: ssNMR
+Title: What the Package Does (One Line, Title Case)
+Version: 0.7
+Authors@R: 
+    person(given = "Piotr",
+           family = "Prostko",
+           role = c("aut", "cre"),
+           email = "piotr.prostko@uhasselt.be")
+Description: What the package does (one paragraph).
+License: GPL-3
+Imports: shiny, shinyBS, plotly, tidyverse, PepsNMR, stringi, readxl,
+        tibble, nnls, nloptr, bsplus
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.1
+NeedsCompilation: no
+Packaged: 2021-05-21 16:14:23 UTC; nsauwen
+Author: Piotr Prostko [aut, cre]
+Maintainer: Piotr Prostko <piotr.prostko@uhasselt.be>
