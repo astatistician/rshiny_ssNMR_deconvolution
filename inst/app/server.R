@@ -356,7 +356,7 @@ server <- function(input, output, session) {
 	# event for retaining only selected lines between data recalulcations in plotly graph
 	legend_click <- reactive({
 	  # to avoid warnings (https://github.com/ropensci/plotly/issues/1528)
-	  req(any(unlist(lapply(plot_object()$x$data, function(x) is.null(x$visible)))))
+	  #req(any(unlist(lapply(plot_object()$x$data, function(x) is.null(x$visible)))))
 	  event_data("plotly_legendclick", source = "p1")
 	  })
 	
@@ -389,7 +389,9 @@ server <- function(input, output, session) {
 	  } else {
 	    p <- layout(p, xaxis = list(zeroline = FALSE, range = c(zoom()$"xaxis.range[0]", zoom()$"xaxis.range[1]"), title = "ppm"), yaxis = list(title = "intensity", range = c(zoom()$"yaxis.range[0]", zoom()$"yaxis.range[1]")))
 	  }
-	  p <- plotly_build(p)
+	  
+	  p <- plotly_build(p) %>%
+	    event_register("plotly_legendclick")
 	  for (i in seq_along(p$x$data)) {
 	    p$x$data[[i]]$visible <- legend_items[[p$x$data[[i]]$name]]
 	  }
