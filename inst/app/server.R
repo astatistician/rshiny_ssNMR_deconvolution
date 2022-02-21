@@ -346,6 +346,9 @@ server <- function(input, output, session) {
 	  # to avoid warnings (https://github.com/ropensci/plotly/issues/1528)
 	  event_data("plotly_legendclick", source = "p1")
 	  })
+	legend_2click <- reactive({
+	  event_data("plotly_legenddoubleclick", source = "p1")
+	})
 	
 	# register clicking event to update pivot point value
 	plot_click <- reactive({
@@ -354,9 +357,27 @@ server <- function(input, output, session) {
 	  })
 	
 	# showing/hiding lines by clicking on the legend 
-	legend_items <- reactiveValues("0% crystal reference" = TRUE, "100% crystal reference" = TRUE, "mixture spectrum" = TRUE, "residuals" = TRUE, "fit" = TRUE)
+	legend_items <- reactiveValues("0% crystal reference" = TRUE, 
+	                               "100% crystal reference" = TRUE, 
+	                               "mixture spectrum" = TRUE, 
+	                               "residuals" = TRUE, 
+	                               "fit" = TRUE)
 	observe({
-				if (!is.null(legend_click()$name)) {
+	      names_tmp <- names(legend_items)
+    	  if (!is.null(legend_2click()$name) & !is.null(legend_click()$name)) {
+    	    names_other <- names_tmp[-c(match(legend_2click()$name, names_tmp))]
+    	    # when double click on an active line - turn off all other lines
+    	    if (legend_items[[legend_2click()$name]] == legend_states[[2]]) {
+    	      legend_items[[legend_2click()$name]] <- legend_states[[1]]
+      	    for (i in names_other){
+      	      legend_items[[i]] <- legend_states[[2]]
+      	    } # when double click on an inactive line - turn on all lines
+    	    } else if (legend_items[[legend_2click()$name]] == legend_states[[1]]){
+    	      for (i in seq_along(legend_items)){
+    	        legend_items[[names_tmp[i]]] <- legend_states[[1]]
+    	      }
+    	    }
+    	   } else if (!is.null(legend_click()$name)) {
 					legend_items[[legend_click()$name]] <- ifelse(legend_click()$visible == TRUE, legend_states[[2]], legend_states[[1]])
 				}
 			})
@@ -378,7 +399,8 @@ server <- function(input, output, session) {
 	  }
 	  
 	  p <- plotly_build(p) %>%
-	    event_register("plotly_legendclick")
+	    event_register("plotly_legendclick") %>% 
+	    event_register("plotly_legenddoubleclick")
 	  for (i in seq_along(p$x$data)) {
 	    p$x$data[[i]]$visible <- legend_items[[p$x$data[[i]]$name]]
 	  }
