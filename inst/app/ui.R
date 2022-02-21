@@ -6,7 +6,10 @@ ui <- fluidPage(
 						wellPanel(
 								fileInput('file_paths_bn', 'Choose a xlsx file with paths to spectra',
 										accept = c(".xlsx")
-								),
+								) %>% 
+								  bsplus::shinyInput_label_embed(bsplus::shiny_iconlink() %>%
+								                                   bsplus::bs_embed_tooltip(title = "All spectra should be acquired with the same spectral resolution and number of data points; otherwise correct data loading and deconvolution cannot be guaranteed.", placement ="left")
+								  ),
 								selectInput("path_amo", "Select the amorphous spectrum path", choices="",  selectize=FALSE),
 								selectInput("path_cr", "Select the crystalline spectrum path", choices="",  selectize=FALSE),
 								selectInput("path_mix", "Select the mixture spectrum path", choices="",  selectize=FALSE)
