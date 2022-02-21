@@ -1,5 +1,5 @@
 # reads in spectral data (a vectorized function - multiple spectra at once)
-# path: a character vector, length>=1. If type is set to "spectrum", then path to the folder contating "1r" and "1i" is expected
+# path: a character vector, length>=1. If type is set to "spectrum", then path to the folder containing "1r" and "1i" is expected
 #       (for Bruker data this is usually something like X\Y\pdata\Z, where X,Y,Z correspond to different experiment, spectra, processed files etc.) )
 
 #' @export 
@@ -210,6 +210,7 @@ nloptr_wrapper <- function(data, x_order, obj_fun, param_start, param_constraint
   return(list(dat = dat, solution = solution, start = rlang::set_names(results$x0, x_order)))
 }
 
+# ppm values of the amorphous spectrum are used for all traces to be consistent with my analysis notebooks (there, only ppm of ref spectrum used)
 #' @export 
 plot_model_fit <- function(model_fit) {
   p <- plot_ly(x = ~ model_fit$dat$ppm_amo, y = ~ (1 - model_fit$solution["prop_cr"]) * model_fit$dat$amo, type = "scatter", mode = "lines", name = "0% crystal reference", line = list(width = 2, color = "black"), source = "p1") %>%
