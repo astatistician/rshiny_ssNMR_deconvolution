@@ -55,7 +55,7 @@ server <- function(input, output, session) {
 				dat <- tibble::tibble(name = varNames, lb = lowerVals, ub = upperVals)
 				dat <- rbind(c(NA, 0,1), dat); dat[1,1] <- "prop_cr"
 				# make sure that constraints are in correct order
-				dat <- dat[match(dat$name, estim_order), ]
+				dat <- dat[match(estim_order, dat$name), ]
 				return(dat)      
 			}, label = "load the user's parameter constraints for nloptr")
 	
