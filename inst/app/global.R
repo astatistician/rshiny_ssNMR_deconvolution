@@ -3,6 +3,7 @@ library(plotly)
 library(tidyverse)
 library(PepsNMR)
 library(stringi)
+library(ssNMR)
 
 to_deg_const <- 180/pi
 to_rad_const <- pi/180
@@ -65,3 +66,7 @@ optim_algorithms_list <-
 				,"NLOPT_LN_SBPLX"
 				,"NLOPT_LN_BOBYQA"
 				,"NLOPT_GN_ISRES")
+
+if(Sys.getenv("SHINYPROXY_PUBLIC_PATH") == "") localMode <- TRUE else localMode <- FALSE
+
+#localMode <- TRUE

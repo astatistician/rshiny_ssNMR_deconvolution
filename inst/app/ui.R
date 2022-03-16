@@ -1,25 +1,47 @@
+if(localMode){
+	fileInputLabel <- 'Choose a xlsx file with paths to spectra'
+} else {
+	fileInputLabel <-  HTML('Choose a xlsx file with paths to spectra <br/> (path format: /opt/spectro$/NMR/...)')
+}
+
 ui <- fluidPage(
 		headerPanel("Semi-automated pre-processing and quantitative evaluation of ssNMR mixture spectra"),
 		fluidRow(
 				column(
 						width = 3,
 						wellPanel(
-								fileInput('file_paths_bn', 'Choose a xlsx file with paths to spectra',
-										accept = c(".xlsx")
-								) %>% 
-								  bsplus::shinyInput_label_embed(bsplus::shiny_iconlink() %>%
-								                                   bsplus::bs_embed_tooltip(title = "All spectra should be acquired with the same spectral resolution and number of data points; otherwise correct data loading and deconvolution cannot be guaranteed.", placement ="left")
-								  ),
-								selectInput("path_amo", "Select the amorphous spectrum path", choices="",  selectize=FALSE),
-								selectInput("path_cr", "Select the crystalline spectrum path", choices="",  selectize=FALSE),
-								selectInput("path_mix", "Select the mixture spectrum path", choices="",  selectize=FALSE)
+								conditionalPanel(condition = '!output.localMode',
+										radioButtons("inputSource", "Select input source", choices = c("Local computer", "Shared drive"))
+								),
+								conditionalPanel(condition = "!output.localMode && input.inputSource == 'Local computer'",
+										fileInput('files_amo', 'Choose amorphous spectral files (1i, 1r and procs)',
+												multiple = TRUE),
+										fileInput('files_cr', 'Choose crystalline spectral files (1i, 1r and procs)',
+												multiple = TRUE),
+										fileInput('files_mix', 'Choose mixture spectral files (1i, 1r and procs)',
+												multiple = TRUE)
+								),
+								conditionalPanel(condition = "output.localMode || input.inputSource == 'Shared drive'",
+										fileInput('file_paths_bn', fileInputLabel,
+														accept = c(".xlsx")
+												) %>% 
+												bsplus::shinyInput_label_embed(bsplus::shiny_iconlink() %>%
+																bsplus::bs_embed_tooltip(title = "All spectra should be acquired with the same spectral resolution and number of data points; otherwise correct data loading and deconvolution cannot be guaranteed.", placement ="left")
+												),
+										selectInput("path_amo", "Select the amorphous spectrum path", choices="",  selectize=FALSE),
+										selectInput("path_cr", "Select the crystalline spectrum path", choices="",  selectize=FALSE),
+										selectInput("path_mix", "Select the mixture spectrum path", choices="",  selectize=FALSE)
+								)	
 						),
 						wellPanel(
-						        numericInput(inputId = "ppm_range1", label = "Select lower ppm boundary", value = param_defaults$ppm_range1, step = 1, width = 140) %>% 
+								div(style="display:inline-block", numericInput(inputId = "ppm_range1", label = "Select lower ppm boundary", value = param_defaults$ppm_range1, step = 1, width = 140) %>% 
 						          bsplus::shinyInput_label_embed(bsplus::shiny_iconlink() %>%
 						                                           bsplus::bs_embed_tooltip(title = "By default, ppm boundaries are set to invisible NA values, meaning no zoom into particular ppm region.", placement ="left")
-						          )
-						        ,numericInput(inputId = "ppm_range2", label = "Select upper ppm boundary", value = param_defaults$ppm_range2, step = 1, width = 140),
+						          )),
+				  				div(style="display:inline-block", h4(" ")),
+								div(style="display:inline-block", h4(" ")),
+								div(style="display:inline-block", h4(" ")),
+				  				div(style="display:inline-block",numericInput(inputId = "ppm_range2", label = "Select upper ppm boundary", value = param_defaults$ppm_range2, step = 1, width = 140)),
 								numericInput("ppm_amo", label = "Chemical shift (ppm) of amorphous", value = param_defaults$ppm_amo, min = -50, max = 50, step = 0.01),
 								numericInput("ppm_mix", label = "Chemical shift (ppm) of mixture", value = param_defaults$ppm_mix, min = -50, max = 50, step = 0.01),
 								numericInput("ph0_mix", label = "PH0 (degrees) of mixture", value = param_defaults$ph0_mix, min = -180, max = 180, step = 0.01),

@@ -15,18 +15,77 @@ server <- function(input, output, session) {
 	start_val_names <- param_defaults_names[str_detect(param_defaults_names, "_start")]
 	saved_params <- matrix(ncol = length(param_defaults_names) + 1, nrow = 0); colnames(saved_params) <- c("id", 	param_defaults_names)
 	
+	# List of reactive variables
+	results <- reactiveValues(
+			amo = NULL,
+			cr = NULL,
+			mix = NULL,
+			resultsFileLoaded = FALSE
+	)
+	
 	update_n_inputs <- function(params, dat){
 		lapply(as.list(params), function(x) {
 					match_ind <- match(x, names(dat))
 					updateNumericInput(session, inputId = x, value = as.numeric(dat[match_ind]))
 				})
 	}
+	
 #####
 	
+	observeEvent(c(input$path_amo, input$files_amo), {
+				
+				if(localMode || input$inputSource == "Shared drive"){
+					amo <- tryCatch(read_spectrum(input$path_amo), error = function(err) return(err))
+				} else {
+					amo <- tryCatch(read_spectrum2(input$files_amo), error = function(err) return(err))
+				} 
+				
+				if(class(amo)[1] == "simpleError"){
+					showNotification(paste0("Error loading amorphous spectrum files: ", amo$message), type = "error")
+				} else{ 
+					results$amo <- amo
+					showNotification("Amorphous spectrum files successfully loaded", type = "message")
+				}
+			}, ignoreInit = TRUE)
+	
+	observeEvent(c(input$path_cr, input$files_cr), {
+				
+				if(localMode || input$inputSource == "Shared drive"){
+					cr <- tryCatch(read_spectrum(input$path_cr), error = function(err) return(err))
+				} else {
+					cr <- tryCatch(read_spectrum2(input$files_cr), error = function(err) return(err))
+				} 
+				
+				if(class(cr)[1] == "simpleError"){
+					showNotification(paste0("Error loading crystalline spectrum files: ", cr$message), type = "error")
+				} else{ 
+					results$cr <- cr
+					showNotification("Crystalline spectrum files successfully loaded", type = "message")
+				}
+			}, ignoreInit = TRUE)
+	
+	observeEvent(c(input$path_mix, input$files_mix), {
+				
+				if(localMode || input$inputSource == "Shared drive"){
+					mix <- tryCatch(read_spectrum(input$path_mix), error = function(err) return(err))
+				} else {
+					mix <- tryCatch(read_spectrum2(input$files_mix), error = function(err) return(err))
+				} 
+				
+				if(class(mix)[1] == "simpleError"){
+					showNotification(paste0("Error loading mixture spectrum files: ", mix$message), type = "error")
+				} else{ 
+					results$mix <- mix
+					showNotification("Mixture spectrum files successfully loaded", type = "message")
+				}
+			}, ignoreInit = TRUE)
+
+
 	# load a xlsx file with paths to spectra; these paths will be accessible for choosing 
 	# in the path_amo, path_cr, path_mix input fields
 	paths <- reactive({
 				req(input$file_paths_bn)
+				results$resultsFileLoaded <- FALSE
 				inFile <- input$file_paths_bn
 				filePaths_DF <- readxl::read_excel(inFile$datapath)
 				colNames <- colnames(filePaths_DF)
@@ -61,13 +120,16 @@ server <- function(input, output, session) {
 	
 	# read in source data
 	raw_data <- reactive({
-	      # 3 element list (because 2 templates and 1 mixture)
-	      info <- vector('list', 3); names(info) <- spectra_name
-				amo <- tryCatch(read_spectrum(input$path_amo), error = function(err) return(err))
-				if(class(amo)[1] == "simpleError"){
-					showNotification(paste0("Error loading amorphous spectrum files: ", amo$message), type = "error")
-					return(NULL)
-				}
+				validate(need(results$amo, message = FALSE),
+						need(results$cr, message = FALSE),
+						need(results$mix, message = FALSE))
+				
+				amo <- results$amo
+				cr <- results$cr
+				mix <- results$mix
+				
+				# 3 element list (because 2 templates and 1 mixture)
+				info <- vector('list', 3); names(info) <- spectra_name
 				info$amo <- amo[[2]]
 				# all three spectra should have eq"ual length
 				spec_size <- info$amo[1, "FTSIZE"] + input$add_zeroes
@@ -76,19 +138,10 @@ server <- function(input, output, session) {
 				names(ppm_df) <- paste0("ppm_",spectra_name)
 				ppm_df$ppm_amo <- as.numeric(names(amo))
 				
-				cr <- tryCatch(read_spectrum(input$path_cr), error = function(err) return(err))
-				if(class(cr)[1] == "simpleError"){
-					showNotification(paste0("Error loading crystalline spectrum files: ", cr$message), type = "error")
-					return(NULL)
-				}
 				info$cr <- cr[[2]]
 				cr <- cr$data[[1]]
 				ppm_df$ppm_cr <- as.numeric(names(cr))
-				mix <- tryCatch(read_spectrum(input$path_mix), error = function(err) return(err))
-				if(class(mix)[1] == "simpleError"){
-					showNotification(paste0("Error loading mixture spectrum files: ", mix$message), type = "error")
-					return(NULL)
-				}
+				
 				info$mix <- mix[[2]]
 				mix <- mix$data[[1]]
 				ppm_df$ppm_mix <- as.numeric(names(mix))
@@ -96,11 +149,11 @@ server <- function(input, output, session) {
 				initial_ppm_range <- range(ppm_df)
 				
 				if (!any(is.na(c(input$ppm_range1, input$ppm_range2)))) {
-				  if (input$ppm_range1 >= input$ppm_range2) {
-				    showNotification("The lower ppm boundary must be smaller than the upper boundary. The model will be fitted on the entire initial ppm range.", type = "warning") 
-				  } else {
-				    df <- subset(df, apply(ppm_df, 1, function(x) all(x >= input$ppm_range1 & x <= input$ppm_range2)))
-				  }
+					if (input$ppm_range1 >= input$ppm_range2) {
+						showNotification("The lower ppm boundary must be smaller than the upper boundary. The model will be fitted on the entire initial ppm range.", type = "warning") 
+					} else {
+						df <- subset(df, apply(ppm_df, 1, function(x) all(x >= input$ppm_range1 & x <= input$ppm_range2)))
+					}
 				}
 				
 				return(list(df, info, spec_size, initial_ppm_range))
@@ -113,7 +166,7 @@ server <- function(input, output, session) {
 	  tmp[[1]]$ppm_mix[which.max(abs(Re(tmp[[1]]$mix)))]
 	  })
 	
-	observeEvent(input$path_mix, {
+	observeEvent(results$mix, {
 				tmp <- raw_data()
 				req(tmp, cancelOutput = TRUE)
 				updateNumericInput(session, inputId = "pivot_point", value = max_peak_of_mix())
@@ -157,10 +210,10 @@ server <- function(input, output, session) {
 	
 	# model fitting with nloptr
 	model_fit <- eventReactive(input$fit_bn, {
-				validate(need(input$path_amo, "Amorphous spectrum path required"), 
-						need(input$path_cr, "Crystalline spectrum path required"), 
-						need(input$path_mix, "Mixture spectrum path required"))
-				
+				validate(need(results$amo, "Amorphous spectrum path required"), 
+						need(results$cr, "Crystalline spectrum path required"), 
+						need(results$mix, "Mixture spectrum path required"))
+
 				notify_id <- showNotification("Model fitting is running...", duration = NULL, closeButton = FALSE, type = "message")
 				on.exit(removeNotification(notify_id), add = TRUE)
 				
@@ -264,20 +317,22 @@ server <- function(input, output, session) {
 	# reset all input parameters to their default values
 	observeEvent({
 	  input$reset_bn 
-	  req(input$path_amo, input$path_cr, input$path_mix)
+	  req(results$amo, results$cr, results$mix)
 	  }, {
-	       tmp_name <- c(preproc_param_names, adv_param_names[adv_param_names != "optim_algorithm"])
-	       update_n_inputs(tmp_name, param_defaults %>% discard(is.character) %>% unlist())
-	       updateNumericInput(session, inputId = "pivot_point", value = max_peak_of_mix())
-	       updateTextInput(session, inputId = "optim_algorithm", value = param_defaults[["optim_algorithm"]])
-	       updateNumericInput(session, inputId = "ppm_range1", value = param_defaults$ppm_range1)
-	       updateNumericInput(session, inputId = "ppm_range2", value = param_defaults$ppm_range2)
+		  if(!results$resultsFileLoaded){
+			  tmp_name <- c(preproc_param_names, adv_param_names[adv_param_names != "optim_algorithm"])
+			  update_n_inputs(tmp_name, param_defaults %>% discard(is.character) %>% unlist())
+			  updateNumericInput(session, inputId = "pivot_point", value = max_peak_of_mix())
+			  updateTextInput(session, inputId = "optim_algorithm", value = param_defaults[["optim_algorithm"]])
+			  updateNumericInput(session, inputId = "ppm_range1", value = param_defaults$ppm_range1)
+			  updateNumericInput(session, inputId = "ppm_range2", value = param_defaults$ppm_range2)
+		  } else results$resultsFileLoaded <- FALSE
 			}, label = "reset all user inputs to the default values")
 	
 	# write the estimated parameters to a csv file
 	track_inputs_rv <- reactiveValues(x = saved_params, count_rows = 0)
 	
-	observeEvent(c(input$path_amo, input$path_cr, input$path_mix), {
+	observeEvent(c(results$amo, results$cr, results$mix), {
 				track_inputs_rv$count_rows <- 0
 			}, label = "reset row counts to zero after changing a spectrum")
 	
@@ -289,7 +344,8 @@ server <- function(input, output, session) {
 				# first, assign default values
 				
 				next_row[param_defaults_names] <- unlist(param_defaults)
-				vals <- curr_input_vals[param_defaults_names] %>% compact() %>% unlist()
+				vals <- curr_input_vals[na.omit(match(param_defaults_names, names(curr_input_vals)))] %>%
+						compact() %>% unlist()
 				# next, update them with input values
 				next_row[names(vals)] <- vals
 				# finally, assign model estimated values
@@ -332,6 +388,13 @@ server <- function(input, output, session) {
 				track_inputs_rv$x[nrow(track_inputs_rv$x), "comment"] <- input$user_comments
 				showNotification("The comment has been saved", type = "message", duration = 2)
 				updateTextAreaInput(session, inputId = "user_comments", value = "")
+			})
+	
+	# Re-initialize datasets at NULL when switching input source
+	observeEvent(input$inputSource, {
+				results$amo <- NULL
+				results$cr <- NULL
+				results$mix <- NULL
 			})
 	##
 	
@@ -411,6 +474,7 @@ server <- function(input, output, session) {
 	# only the last record from this file will be read in
 	observeEvent(input$file_load_bn, {
 				req(input$file_load_bn)
+				results$resultsFileLoaded <- TRUE
 				inFile <- input$file_load_bn
 				tmp <- read.csv(inFile$datapath, stringsAsFactors = FALSE)
 				
@@ -422,13 +486,25 @@ server <- function(input, output, session) {
 				complete_cases_ind <- !apply(tmp, 1, function(x) all(is.na(x[var_check]) | x[var_check] == "" ))
 				tmp <- tmp[complete_cases_ind,]
 				dat <- tmp[nrow(tmp),]
-				updateSelectInput(session, "path_amo", choices = dat[["path_amo"]])
-				updateSelectInput(session, "path_cr", choices = dat[["path_cr"]])
-				updateSelectInput(session, "path_mix", choices = dat[["path_mix"]])
+				if(localMode || input$inputSource == "Shared drive"){
+					if(!is.na(dat[["path_amo"]])) updateSelectInput(session, "path_amo", choices = dat[["path_amo"]])
+					if(!is.na(dat[["path_cr"]])) updateSelectInput(session, "path_cr", choices = dat[["path_cr"]])
+					if(!is.na(dat[["path_mix"]])) updateSelectInput(session, "path_mix", choices = dat[["path_mix"]])
+				} else {
+					showNotification("Note that file paths in results file cannot be re-read from local computer.", type = "warning") 
+				}
 				param_selected <- c(preproc_param_names, adv_param_names[adv_param_names != "optim_algorithm"], "ppm_range1", "ppm_range2")
 				update_n_inputs(param_selected, dat[param_selected])
+				updateNumericInput(session, inputId = "pivot_point", value = dat[["pivot_point"]]) # Also take this value from result file (in case no file paths are available)
 				updateTextInput(session, inputId = "optim_algorithm", value = as.character(dat["optim_algorithm"]))
 			}, label = "load in estimated results")
+	
+	
+	output$localMode <- reactive({
+				return(localMode)
+			})
+	outputOptions(output, 'localMode', suspendWhenHidden=FALSE)
+	
 }
 
 
