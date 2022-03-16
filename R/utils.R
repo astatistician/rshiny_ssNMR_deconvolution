@@ -48,7 +48,7 @@ read_spectrum <- function(path) {
 
 # Same as read_spectrum but this version is only needed in case of client-server file interaction
 #' @export 
-read_spectrum2 <- function(filesDF, type) {
+read_spectrum2 <- function(filesDF) {
   
     n_files <- 1
     data_out <- vector("list", n_files)
