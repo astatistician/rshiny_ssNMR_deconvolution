@@ -13,7 +13,7 @@ Imports: shiny, shinyBS, plotly, tidyverse, PepsNMR, stringi, readxl,
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.1.1
+RoxygenNote: 7.1.2
 NeedsCompilation: no
 Packaged: 2021-05-21 16:14:23 UTC; nsauwen
 Author: Piotr Prostko [aut, cre]
