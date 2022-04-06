@@ -210,14 +210,14 @@ nloptr_wrapper <- function(data, x_order, obj_fun, param_start, param_constraint
   return(list(dat = dat, solution = solution, start = rlang::set_names(results$x0, x_order)))
 }
 
-# ppm values of the amorphous spectrum are used for all traces to be consistent with my analysis notebooks (there, only ppm of ref spectrum used)
+# separate ppm values for amo, cr, and mix (though residuals and the fit get mix's ppm values)
 #' @export 
 plot_model_fit <- function(model_fit) {
   p <- plot_ly(x = ~ model_fit$dat$ppm_amo, y = ~ (1 - model_fit$solution["prop_cr"]) * model_fit$dat$amo, type = "scatter", mode = "lines", name = "0% crystal reference", line = list(width = 2, color = "black"), source = "p1") %>%
-    add_trace(x = ~ model_fit$dat$ppm_amo, y = ~ model_fit$solution["prop_cr"] * model_fit$dat$cr, name = "100% crystal reference", mode = "lines", line = list(color = "green")) %>%
-    add_trace(x = ~ model_fit$dat$ppm_amo, y = ~ model_fit$dat$mix, name = "mixture spectrum", mode = "lines", line = list(color = "4682B4")) %>%
-    add_trace(x = ~ model_fit$dat$ppm_amo, y = ~ model_fit$dat$residuals, name = "residuals", mode = "lines", line = list(color = "red")) %>%
-    add_trace(x = ~ model_fit$dat$ppm_amo, y = ~ model_fit$dat$fitted, name = "fit", mode = "lines", line = list(color = "orange")) %>%
+    add_trace(x = ~ model_fit$dat$ppm_cr, y = ~ model_fit$solution["prop_cr"] * model_fit$dat$cr, name = "100% crystal reference", mode = "lines", line = list(color = "green")) %>%
+    add_trace(x = ~ model_fit$dat$ppm_mix, y = ~ model_fit$dat$mix, name = "mixture spectrum", mode = "lines", line = list(color = "4682B4")) %>%
+    add_trace(x = ~ model_fit$dat$ppm_mix, y = ~ model_fit$dat$residuals, name = "residuals", mode = "lines", line = list(color = "red")) %>%
+    add_trace(x = ~ model_fit$dat$ppm_mix, y = ~ model_fit$dat$fitted, name = "fit", mode = "lines", line = list(color = "orange")) %>%
     layout(xaxis = list(zeroline = FALSE, title = "ppm"), yaxis = list(title = "intensity")) 
   return(p)
 }
