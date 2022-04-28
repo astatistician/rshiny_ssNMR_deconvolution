@@ -105,13 +105,6 @@ zero_fill_apod <- function(x, size, LB, SW_h) {
 }
 
 #' @export 
-ppm_zero_fill_apod <- function(ppm, info, spec_size){
-  swp <- info[2] / info[3]
-  dppm <- swp / (spec_size - 1)
-  seq(info[1], (info[1] - swp), by = -dppm)
-}
-
-#' @export 
 ph_corr <- function(x, ph) {
   x * exp(complex(real = 0, imaginary = ph))
 }
@@ -142,7 +135,7 @@ trim_values <- function(x, limits){
 }
 
 #' @export 
-obj_fun <- function(x, x_order, ppm_form1, ppm_form2, ppm_mix, form1, form2, mix, pivot_point, mode = "objective") {
+obj_fun <- function(x, x_order, ppm, form1, form2, mix, pivot_point, mode = "objective") {
   n_points <- length(mix)
   int_seq <- 1:n_points
   
@@ -152,7 +145,7 @@ obj_fun <- function(x, x_order, ppm_form1, ppm_form2, ppm_mix, form1, form2, mix
                         ~ match(.x, x_order)) 
   x_form1 <- Re(form1)
   if (!is.na(ind["ppm_form1"])) {
-    x_form1 <- shift_horizon(x = ppm_form1, y = x_form1, delta = x[ind["ppm_form1"]])
+    x_form1 <- shift_horizon(x = ppm, y = x_form1, delta = x[ind["ppm_form1"]])
   }                  
   x_form1 <- norm_sum(x_form1)
   
@@ -160,11 +153,11 @@ obj_fun <- function(x, x_order, ppm_form1, ppm_form2, ppm_mix, form1, form2, mix
   
   y_mix <- mix
   if (all(!is.na(ind[c("ph0_mix", "ph1_mix")]))){
-    lin_pred <- get_ph_angle(x = int_seq, int = x[ind["ph0_mix"]], slope = x[ind["ph1_mix"]], pivot_point = pivot_point, n = n_points, ppm=ppm_mix)
+    lin_pred <- get_ph_angle(x = int_seq, int = x[ind["ph0_mix"]], slope = x[ind["ph1_mix"]], pivot_point = pivot_point, n = n_points, ppm = ppm)
     y_mix <- ph_corr(y_mix, lin_pred)   
   }
   if (!is.na(ind["ppm_mix"])) {
-    y_mix <- shift_horizon(x = ppm_mix, y = Re(y_mix), delta = x[ind["ppm_mix"]])
+    y_mix <- shift_horizon(x = ppm, y = Re(y_mix), delta = x[ind["ppm_mix"]])
   }
   y_mix <- norm_sum(y_mix)
   y_mix <- y_mix - x_form1
@@ -174,7 +167,7 @@ obj_fun <- function(x, x_order, ppm_form1, ppm_form2, ppm_mix, form1, form2, mix
   residuals <- y_mix - fitted
   # if mode = "objective" then return RSS (used in nloptr); else return input data + fitted values + residuals
   if (mode!="objective"){
-    return(data.frame(ppm_form1 = ppm_form1, ppm_form2 = ppm_form2, ppm_mix = ppm_mix, form1 = x_form1, form2 = x_form2 + x_form1, mix = y_mix + x_form1, fitted = fitted + x_form1, residuals = residuals))
+    return(data.frame(ppm = ppm, form1 = x_form1, form2 = x_form2 + x_form1, mix = y_mix + x_form1, fitted = fitted + x_form1, residuals = residuals))
   } else return(sum(residuals^2, na.rm = TRUE))
 }
 
@@ -196,12 +189,12 @@ nloptr_wrapper <- function(data, x_order, obj_fun, param_start, param_constraint
     form1 = data$form1,
     mix = data$mix,
     form2 = data$form2,
-    ppm_form1 = data$ppm_form1, ppm_form2 = data$ppm_form2, ppm_mix = data$ppm_mix,
+    ppm = data$ppm, 
     pivot_point = pivot_point,
     mode = "objective"
   )
   
-  dat <- obj_fun(x = results$solution, x_order = x_order, ppm_form1 = data$ppm_form1, ppm_form2 = data$ppm_form2, ppm_mix = data$ppm_mix, form1 = data$form1, form2 = data$form2, mix = data$mix, pivot_point = pivot_point, mode="prediction")
+  dat <- obj_fun(x = results$solution, x_order = x_order, ppm = data$ppm, form1 = data$form1, form2 = data$form2, mix = data$mix, pivot_point = pivot_point, mode="prediction")
   dat <- dat[complete.cases(dat), ]
   solution <- c(
     prop_form2 = results$solution[1], rmse = sqrt(results$objective/length(data$mix)), ph0_mix = results$solution[2] * to_deg_const,
@@ -213,11 +206,11 @@ nloptr_wrapper <- function(data, x_order, obj_fun, param_start, param_constraint
 # separate ppm values for form1, form2, and mix (though residuals and the fit get mix's ppm values)
 #' @export 
 plot_model_fit <- function(model_fit) {
-  p <- plot_ly(x = ~ model_fit$dat$ppm_form1, y = ~ (1 - model_fit$solution["prop_form2"]) * model_fit$dat$form1, type = "scatter", mode = "lines", name = "form1 reference", line = list(width = 2, color = "black"), source = "p1") %>%
-    add_trace(x = ~ model_fit$dat$ppm_form2, y = ~ model_fit$solution["prop_form2"] * model_fit$dat$form2, name = "form2 reference", mode = "lines", line = list(color = "green")) %>%
-    add_trace(x = ~ model_fit$dat$ppm_mix, y = ~ model_fit$dat$mix, name = "mixture spectrum", mode = "lines", line = list(color = "4682B4")) %>%
-    add_trace(x = ~ model_fit$dat$ppm_mix, y = ~ model_fit$dat$residuals, name = "residuals", mode = "lines", line = list(color = "red")) %>%
-    add_trace(x = ~ model_fit$dat$ppm_mix, y = ~ model_fit$dat$fitted, name = "fit", mode = "lines", line = list(color = "orange")) %>%
+  p <- plot_ly(x = ~ model_fit$dat$ppm, y = ~ (1 - model_fit$solution["prop_form2"]) * model_fit$dat$form1, type = "scatter", mode = "lines", name = "form1 reference", line = list(width = 2, color = "black"), source = "p1") %>%
+    add_trace(x = ~ model_fit$dat$ppm, y = ~ model_fit$solution["prop_form2"] * model_fit$dat$form2, name = "form2 reference", mode = "lines", line = list(color = "green")) %>%
+    add_trace(x = ~ model_fit$dat$ppm, y = ~ model_fit$dat$mix, name = "mixture spectrum", mode = "lines", line = list(color = "4682B4")) %>%
+    add_trace(x = ~ model_fit$dat$ppm, y = ~ model_fit$dat$residuals, name = "residuals", mode = "lines", line = list(color = "red")) %>%
+    add_trace(x = ~ model_fit$dat$ppm, y = ~ model_fit$dat$fitted, name = "fit", mode = "lines", line = list(color = "orange")) %>%
     layout(xaxis = list(zeroline = FALSE, title = "ppm"), yaxis = list(title = "intensity")) 
   return(p)
 }

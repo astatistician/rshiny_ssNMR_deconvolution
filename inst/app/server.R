@@ -130,31 +130,22 @@ server <- function(input, output, session) {
 				form2 <- results$form2
 				mix <- results$mix
 				
-				# 3 element list (because 2 templates and 1 mixture)
-				info <- vector('list', 3); names(info) <- spectra_name
-				info$form1 <- form1[[2]]
-				# all three spectra should have eq"ual length
-				spec_size <- info$form1[1, "FTSIZE"] + input$add_zeroes
+				info <- form2[[2]]
+				spec_size <- info[1, "FTSIZE"] + input$add_zeroes
+				ppm <- as.numeric(names(form2$data[[1]]))
+				initial_ppm_range <- range(ppm)
+				
 				form1 <- form1$data[[1]]
-				ppm_df <- as.data.frame(matrix(NA, nrow = length(form1), ncol = length(info)))
-				names(ppm_df) <- paste0("ppm_",spectra_name)
-				ppm_df$ppm_form1 <- as.numeric(names(form1))
-				
-				info$form2 <- form2[[2]]
 				form2 <- form2$data[[1]]
-				ppm_df$ppm_form2 <- as.numeric(names(form2))
-				
-				info$mix <- mix[[2]]
 				mix <- mix$data[[1]]
-				ppm_df$ppm_mix <- as.numeric(names(mix))
-				df <-  bind_cols(ppm_df, data.frame(form1 = form1, form2 = form2, mix = mix))
-				initial_ppm_range <- range(ppm_df)
+				
+				df <-  bind_cols(ppm = ppm, data.frame(form1 = form1, form2 = form2, mix = mix))
 				
 				if (!any(is.na(c(input$ppm_range1, input$ppm_range2)))) {
 					if (input$ppm_range1 >= input$ppm_range2) {
 						showNotification("The lower ppm boundary must be smaller than the upper boundary. The model will be fitted on the entire initial ppm range.", type = "warning") 
 					} else {
-						df <- subset(df, apply(ppm_df, 1, function(x) all(x >= input$ppm_range1 & x <= input$ppm_range2)))
+						df <- subset(df, ppm >= input$ppm_range1 & ppm <= input$ppm_range2)
 					}
 				}
 				
@@ -165,7 +156,7 @@ server <- function(input, output, session) {
 	# the most abundant peak of the selected mixture spectrum
 	max_peak_of_mix <- reactive({
 	  tmp <- raw_data()
-	  tmp[[1]]$ppm_mix[which.max(abs(Re(tmp[[1]]$mix)))]
+	  tmp[[1]]$ppm[which.max(abs(Re(tmp[[1]]$mix)))]
 	  })
 	
 	observeEvent(results$mix, {
@@ -179,7 +170,7 @@ server <- function(input, output, session) {
 				raw_data <- raw_data()
 				req(raw_data, cancelOutput = TRUE)
 				
-				ppm_form1 <- raw_data[[1]]$ppm_form1; ppm_form2 <- raw_data[[1]]$ppm_form2; ppm_mix <- raw_data[[1]]$ppm_mix;
+				ppm <- raw_data[[1]]$ppm
 				form1 <- raw_data[[1]]$form1
 				form2 <- raw_data[[1]]$form2
 				mix <- raw_data[[1]]$mix
@@ -188,21 +179,18 @@ server <- function(input, output, session) {
 				
 				if (input$add_zeroes > 0 || input$lb_global > 0) {
 				  
-				  ppm_form1 <- ppm_zero_fill_apod(ppm = ppm_form1, info = info$form1, spec_size)
-				  ppm_form2 <- ppm_zero_fill_apod(ppm = ppm_form2, info = info$form2, spec_size)
-				  ppm_mix <- ppm_zero_fill_apod(ppm = ppm_mix, info = info$mix, spec_size)
-				  
-					form1 <- zero_fill_apod(form1, spec_size, input$lb_global, info$form1[2])
-					form2 <- zero_fill_apod(form2, spec_size, input$lb_global, info$form2[2])
-					mix <- zero_fill_apod(mix, spec_size, input$lb_global, info$mix[2])
+				  ppm <- ppm_zero_fill_apod(ppm = ppm, info = info, spec_size)
+					form1 <- zero_fill_apod(form1, spec_size, input$lb_global, info[2])
+					form2 <- zero_fill_apod(form2, spec_size, input$lb_global, info[2])
+					mix <- zero_fill_apod(mix, spec_size, input$lb_global, info[2])
 				} 
 				
 				# additional line broadening of the form2 template
 				if (input$lb_form2 > 0) {
-					form2 <- zero_fill_apod(form2, spec_size, input$lb_form2, info$form2[2])
+					form2 <- zero_fill_apod(form2, spec_size, input$lb_form2, info[2])
 				}
 				
-				return(list(data.frame(ppm_form1 = ppm_form1, form1 = form1, ppm_form2 = ppm_form2, form2 = form2, ppm_mix = ppm_mix, mix = mix), info, spec_size))
+				return(list(data.frame(ppm = ppm, form1 = form1, form2 = form2, mix = mix), info, spec_size))
 			}, label = "process three spectra (zero fill, apodization)")
 	
 	fit_bn_rv <- reactiveValues(counter=0)
@@ -221,24 +209,22 @@ server <- function(input, output, session) {
 				
 				proc_data <- proc_data()
 				
-				ppm_form1 <- proc_data[[1]]$ppm_form1
-				ppm_form2 <- proc_data[[1]]$ppm_form2
-				ppm_mix <- proc_data[[1]]$ppm_mix
+				ppm <- proc_data[[1]]$ppm
 				form1 <- proc_data[[1]]$form1
 				form2 <- proc_data[[1]]$form2
 				mix <- proc_data[[1]]$mix
 				
 				if (input$estim_mode %in% c("only_prop", "explicit")) {
-				  form1 <- shift_horizon(x = ppm_form1, y = Re(form1), delta = input$ppm_form1)
+				  form1 <- shift_horizon(x = ppm, y = Re(form1), delta = input$ppm_form1)
 				  form1 <- norm_sum(form1)
 				  form2 <- norm_sum(form2)
-				  N <- length(ppm_form1)
-				  lin_pred <- get_ph_angle(1:N, int = input$ph0_mix * to_rad_const, slope = input$ph1_mix * to_rad_const, pivot_point = input$pivot_point, n = N, ppm_mix)
+				  N <- length(ppm)
+				  lin_pred <- get_ph_angle(1:N, int = input$ph0_mix * to_rad_const, slope = input$ph1_mix * to_rad_const, pivot_point = input$pivot_point, n = N, ppm)
 				  mix <- ph_corr(mix, lin_pred)
-				  mix <- shift_horizon(x = ppm_mix, y = Re(mix), delta = input$ppm_mix)
+				  mix <- shift_horizon(x = ppm, y = Re(mix), delta = input$ppm_mix)
 				  mix <- norm_sum(mix)
 				  
-				  model_input <- data.frame(ppm_form1 = ppm_form1, form1 = form1, ppm_form2 = ppm_form2, form2 = form2, ppm_mix = ppm_mix, mix = mix)
+				  model_input <- data.frame(ppm = ppm, form1 = form1, form2 = form2, mix = mix)
 				  na_ind <- is.na(model_input$form1) | is.na(model_input$mix)
 				  model_input <- model_input[!na_ind, ]
 				  
@@ -269,11 +255,11 @@ server <- function(input, output, session) {
 				  # if ph0_angle==0 then take pepsNMR PH0 as a starting value for PH0
 				  if (input$do_PH0_PepsNMR) {
 				    tmp <- matrix(mix, nrow = 1)
-				    colnames(tmp) <- ppm_mix
+				    colnames(tmp) <- ppm
 				    ph0_angle <- ZeroOrderPhaseCorrection(tmp, type.zopc = "max", returnAngle = TRUE)$Angle * to_deg_const
 				  }
 				  
-				  model_input <- data.frame(ppm_form1 = ppm_form1, form1 = form1, ppm_form2 = ppm_form2, form2 = form2, ppm_mix = ppm_mix, mix = mix)
+				  model_input <- data.frame(ppm = ppm, form1 = form1, form2 = form2, mix = mix)
 				  na_ind <- is.na(model_input$form1) | is.na(model_input$mix)
 				  model_input <- model_input[!na_ind, ]
 				  
@@ -460,8 +446,8 @@ server <- function(input, output, session) {
 				paste0(
 						"Estimated form2 proportion [0-1 interval] ", round(model_fit()$solution["prop_form2"], 7),
 						"\nrmse (x10^6):", round(10^6 * model_fit()$solution["rmse"], 7),
-						"\nInitial spectrum size:", isolate(raw_data()[[2]]$form1[1, "FTSIZE"]),
-						"\nFinal spectrum size:", isolate(raw_data()[[2]]$form1[1, "FTSIZE"] + input$add_zeroes)
+						"\nInitial spectrum size:", isolate(raw_data()[[2]][1, "FTSIZE"]),
+						"\nFinal spectrum size:", isolate(raw_data()[[2]][1, "FTSIZE"] + input$add_zeroes)
 				)	
 			})
 	
