@@ -139,7 +139,14 @@ server <- function(input, output, session) {
 				form2 <- form2$data[[1]]
 				mix <- mix$data[[1]]
 				
-				df <-  bind_cols(ppm = ppm, data.frame(form1 = form1, form2 = form2, mix = mix))
+				# linear interpolation of mix and form1 spectra onto forms2's ppm values
+				ppm_tmp <- as.numeric(names(form1))
+				form1 <- complex(real = approx(x = ppm_tmp, y = Re(form1), xout = ppm)$y, 
+				                 imaginary = approx(x = ppm_tmp, y = Im(form1), xout = ppm)$y)
+				ppm_tmp <- as.numeric(names(mix))
+				mix <- complex(real = approx(x = ppm_tmp, y = Re(mix), xout = ppm)$y, 
+				                 imaginary = approx(x = ppm_tmp, y = Im(mix), xout = ppm)$y)
+				df <-  bind_cols(ppm = ppm, data.frame(form1 = unclass(form1), form2 = unclass(form2), mix = unclass(mix)))
 				
 				if (!any(is.na(c(input$ppm_range1, input$ppm_range2)))) {
 					if (input$ppm_range1 >= input$ppm_range2) {
