@@ -131,7 +131,7 @@ server <- function(input, output, session) {
 				mix <- results$mix
 				
 				info <- form2[[2]]
-				spec_size <- info[1, "FTSIZE"] + input$add_zeroes
+				spec_size <- info[1, "SI"] + input$add_zeroes
 				ppm <- as.numeric(names(form2$data[[1]]))
 				initial_ppm_range <- range(ppm)
 				
@@ -453,8 +453,8 @@ server <- function(input, output, session) {
 				paste0(
 						"Estimated form2 proportion [0-1 interval] ", round(model_fit()$solution["prop_form2"], 7),
 						"\nrmse (x10^6):", round(10^6 * model_fit()$solution["rmse"], 7),
-						"\nInitial spectrum size:", isolate(raw_data()[[2]][1, "FTSIZE"]),
-						"\nFinal spectrum size:", isolate(raw_data()[[2]][1, "FTSIZE"] + input$add_zeroes)
+						"\nInitial spectrum size:", isolate(raw_data()[[2]][1, "SI"]),
+						"\nFinal spectrum size:", isolate(raw_data()[[2]][1, "SI"] + input$add_zeroes)
 				)	
 			})
 	

@@ -26,7 +26,7 @@ read_spectrum <- function(path) {
       params_ind <- match(params, params_all)
       info_out[i, ] <- as.numeric(values_all[params_ind])
       
-      nspec <- info_out[i, "FTSIZE"]
+      nspec <- info_out[i, "SI"]
       swp <- info_out[i, "SW_p"] / info_out[i, "SF"]
       dppm <- swp / (nspec - 1)
       ppm <- seq(info_out[i, "OFFSET"], (info_out[i, "OFFSET"] - swp), by = -dppm)
@@ -73,7 +73,7 @@ read_spectrum2 <- function(filesDF) {
       params_ind <- match(params, params_all)
       info_out[i, ] <- as.numeric(values_all[params_ind])
       
-      nspec <- info_out[i, "FTSIZE"]
+      nspec <- info_out[i, "SI"]
       swp <- info_out[i, "SW_p"] / info_out[i, "SF"]
       dppm <- swp / (nspec - 1)
       ppm <- seq(info_out[i, "OFFSET"], (info_out[i, "OFFSET"] - swp), by = -dppm)
