@@ -351,7 +351,7 @@ server <- function(input, output, session) {
 				if (input$estim_mode == "only_prop") {
 				  next_row["fit_type"] <- "only proportion"
 				} else if (input$estim_mode == "explicit") {
-				  next_row[c("fit_type", "optim_algorithm")] <- c("none, explicit proportion", "")
+				  next_row[c("fit_type", "optim_algorithm")] <- c("none, explicit proportion", param_defaults$optim_algorithm)
 				} else if (input$estim_mode == "prop_preproc") {
 				  next_row[c("fit_type", estim_order)] <- c("proportion and pre-processing parameters", ms[estim_order])
 				}
