@@ -29,6 +29,7 @@ param_defaults <- list(
   pivot_point = NA,	
   add_zeroes = 0,	
   lb_global = 0,	
+  lb_form1	= 0,
   lb_form2	= 0,
   ppm_form1_lower	= -0.2,
   ppm_form1_upper	= 0.2,
