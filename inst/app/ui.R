@@ -65,11 +65,11 @@ ui <- fluidPage(
 												div(style="display:inline-block",numericInput(inputId="ph1_mix_lower", label="Lower PH1 (degrees)", value = param_defaults$ph1_mix_lower, min = 2 * param_defaults$ph1_mix_lower, max = 0, step = 0.01, width = 145)),
 												div(style="display:inline-block",numericInput(inputId="ph1_mix_upper", label="Upper PH1", value = param_defaults$ph1_mix_upper, min = 0, max = 2 * param_defaults$ph1_mix_upper, step = 0.01, width = 145)),
 												br(),
-												div(style="display:inline-block",numericInput(inputId="ppm_form1_lower", label="Lower ppm shift form1", value = param_defaults$ppm_form1_lower, min = -50, max = 50, step = 0.01, width = 145)),
-												div(style="display:inline-block",numericInput(inputId="ppm_form1_upper", label="Upper ppm shift form1", value = param_defaults$ppm_form1_upper, min = -50, max = 50, step = 0.01, width = 145)),
+												div(style="display:inline-block",numericInput(inputId="ppm_form1_lower", label="Lower ppm shift form1", value = param_defaults$ppm_form1_lower, min = -Inf, max = +Inf, step = 0.01, width = 145)),
+												div(style="display:inline-block",numericInput(inputId="ppm_form1_upper", label="Upper ppm shift form1", value = param_defaults$ppm_form1_upper, min = -Inf, max = +Inf, step = 0.01, width = 145)),
 												br(),
-												div(style="display:inline-block",numericInput(inputId="ppm_mix_lower", label="Lower ppm shift mixture", value = param_defaults$ppm_mix_lower, min = -50, max = 50, step = 0.01, width = 145)),
-												div(style="display:inline-block",numericInput(inputId="ppm_mix_upper", label="Upper ppm shift mixture", value = param_defaults$ppm_mix_upper, min = -50, max = 50, step = 0.01, width = 145))
+												div(style="display:inline-block",numericInput(inputId="ppm_mix_lower", label="Lower ppm shift mixture", value = param_defaults$ppm_mix_lower, min = -Inf, max = +Inf, step = 0.01, width = 145)),
+												div(style="display:inline-block",numericInput(inputId="ppm_mix_upper", label="Upper ppm shift mixture", value = param_defaults$ppm_mix_upper, min = -Inf, max = +Inf, step = 0.01, width = 145))
 										)
 								)
 						),

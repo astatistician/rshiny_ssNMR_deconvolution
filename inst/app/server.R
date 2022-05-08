@@ -308,19 +308,37 @@ server <- function(input, output, session) {
 	
 	## operations on the user inputs
 	
+	# update limits for form1 and mix horizontal shift parameters based on the spectral width of form2
+	# when loading spectra or clicking on the reset button
+	observeEvent(c(results$form1, results$form2, results$mix, input$reset_bn), {
+	  req(results$form2)
+	  max_shift <- round(abs(-diff(range(as.numeric(names(results$form2$data[[1]])))))/2)
+	  
+    updateNumericInput(session, inputId = "ppm_form1_lower", value = -max_shift)
+    updateNumericInput(session, inputId = "ppm_form1_upper", value = max_shift)
+    
+    updateNumericInput(session, inputId = "ppm_mix_lower", value = -max_shift)
+    updateNumericInput(session, inputId = "ppm_mix_upper", value = max_shift)
+    })
+	
 	# after fitting with nloptr, update the corresponding inputs
 	observeEvent(input$fit_bn, {
 	      if (input$estim_mode == "only_prop") updateNumericInput(session, inputId = "prop_form2", value = as.numeric(model_fit()$solution["prop_form2"]))
 	      else if (input$estim_mode == "prop_preproc") update_n_inputs(preproc_param_names, model_fit()$solution)
 			}, label = "update user inputs with nloptr estimates")
 	
-	# reset all input parameters to their default values
+	# reset all input parameters to their default values 
+	# except the limits for ppm_form1 and ppm_form2 as these are supplied automatically when switching the 
 	observeEvent({
 	  input$reset_bn 
 	  req(results$form1, results$form2, results$mix)
 	  }, {
 		  if(!results$resultsFileLoaded){
-			  tmp_name <- c(preproc_param_names, adv_param_names[adv_param_names != "optim_algorithm"])
+			  tmp_name <- c(preproc_param_names, 
+			                adv_param_names[!(adv_param_names %in% 
+			                                    c("optim_algorithm", "ppm_form1_lower", "ppm_form1_upper", 
+			                                      "ppm_mix_lower", "ppm_mix_upper"))
+			                                  ])
 			  update_n_inputs(tmp_name, param_defaults %>% discard(is.character) %>% unlist())
 			  updateNumericInput(session, inputId = "pivot_point", value = max_peak_of_mix())
 			  updateTextInput(session, inputId = "optim_algorithm", value = param_defaults[["optim_algorithm"]])
