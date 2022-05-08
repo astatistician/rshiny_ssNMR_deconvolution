@@ -1,6 +1,6 @@
 Package: ssNMR
 Title: What the Package Does (One Line, Title Case)
-Version: 0.9
+Version: 1.0
 Authors@R: 
     person(given = "Piotr",
            family = "Prostko",

@@ -79,6 +79,8 @@ read_spectrum2 <- function(filesDF) {
       swp <- info_out[i, "SW_p"] / info_out[i, "SF"]
       dppm <- swp / nspec
       ppm <- seq(info_out[i, "OFFSET"], (info_out[i, "OFFSET"] - swp), by = -dppm)
+	  # the ppm of last point may not coincide with the sequence right limit
+	  ppm <- ppm[1 : nspec]
       
       spec_r <- readBin(filePaths[grep("1r", fileNames)],
                         what = "int", n = nspec,
@@ -104,6 +106,13 @@ zero_fill_apod <- function(x, size, LB, SW_h) {
   x <- x * exp(-tt * LB * pi / (2 * SW_h))
   x <- fft(x)
   return(x)
+}
+
+#' @export 
+ppm_zero_fill_apod <- function(ppm, info, spec_size){
+  swp <- info[2] / info[3]
+  dppm <- swp / (spec_size - 1)
+  seq(info[1], (info[1] - swp), by = -dppm)
 }
 
 #' @export 
