@@ -107,6 +107,13 @@ zero_fill_apod <- function(x, size, LB, SW_h) {
 }
 
 #' @export 
+ppm_zero_fill_apod <- function(ppm, info, spec_size){
+  swp <- info[2] / info[3]
+  dppm <- swp / (spec_size - 1)
+  seq(info[1], (info[1] - swp), by = -dppm)
+}
+
+#' @export 
 ph_corr <- function(x, ph) {
   x * exp(complex(real = 0, imaginary = ph))
 }
