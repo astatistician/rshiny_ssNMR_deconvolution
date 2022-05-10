@@ -308,11 +308,15 @@ server <- function(input, output, session) {
 	
 	## operations on the user inputs
 	
-	# update limits for form1 and mix horizontal shift parameters based on the spectral width of form2
-	# when loading spectra or clicking on the reset button
-	observeEvent(c(results$form1, results$form2, results$mix, input$reset_bn), {
+	# update limits for form1 and mix horizontal shift parameters based on the spectral width of form2 when:
+	# loading spectra, clicking on the reset button, or restricting ppm range with the appropriate input fields
+	observeEvent(c(results$form1, results$form2, results$mix, input$reset_bn, input$ppm_range1, input$ppm_range2), {
 	  req(results$form2)
-	  max_shift <- round(abs(-diff(range(as.numeric(names(results$form2$data[[1]])))))/2)
+	  
+	  max_shift1 <- abs(-diff(range(as.numeric(names(results$form2$data[[1]])))))
+	  max_shift2 <- abs(input$ppm_range2 - input$ppm_range1)
+	  max_shift2 <- ifelse(is.null(max_shift2), NA, max_shift2)
+	  max_shift <- floor(min(max_shift1, max_shift2, na.rm = TRUE)/2)
 	  
     updateNumericInput(session, inputId = "ppm_form1_lower", value = -max_shift)
     updateNumericInput(session, inputId = "ppm_form1_upper", value = max_shift)
