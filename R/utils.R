@@ -191,8 +191,8 @@ nloptr_wrapper <- function(data, x_order, obj_fun, param_start, param_constraint
     ub = param_constraints$ub,
     opts = nloptr_opts <- list(
       "algorithm" = optim_algorithm,
-      "xtol_rel" = 1.0e-10,
-      "xtol_abs" = 1.0e-10,
+      "xtol_rel" = 1.0e-6,
+      "xtol_abs" = 1.0e-6,
       "maxeval" = 1500,
       print_level = 0
     ),
