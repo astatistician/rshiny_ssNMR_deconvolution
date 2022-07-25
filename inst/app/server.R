@@ -492,6 +492,13 @@ server <- function(input, output, session) {
 				write.csv(x=track_inputs_rv$x, file=file, row.names=FALSE)
 			})
 	
+	# download a csv file with individual spectral data
+	output$download_spectral_data_bn <- downloadHandler(
+	  filename = function(){paste0("spectral_data_", strftime(Sys.time(), "%Y%m%d"), ".rds")},
+	  content = function(file){
+	    saveRDS(object = model_fit(), file=file)
+	  })
+	
 	# load the spectra and estimated processing parameters from a file with previous results 
 	# only the last record from this file will be read in
 	observeEvent(input$file_load_bn, {
