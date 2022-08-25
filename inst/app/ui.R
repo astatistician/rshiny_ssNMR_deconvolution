@@ -95,8 +95,6 @@ ui <- fluidPage(
 						br(),br(),
 						downloadButton("download_params_bn", "Download results", width = 210),
 						br(),br(),
-						downloadButton("download_spectral_data_bn", "Download spectral data", width = 210),
-						br(),br(),
 						fileInput('file_load_bn', 'Load results from a file',accept = c(".csv"))
 				),
 				column(

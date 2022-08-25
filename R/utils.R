@@ -108,6 +108,15 @@ zero_fill_apod <- function(x, size, LB, SW_h) {
   return(x)
 }
 
+#' @export
+zero_fill_apod2 <- function(x, size, LB, SW_h, GRPDLY) {
+  n <- length(x)
+  x2 <- ph_corr(x, -GRPDLY*2*pi*c((0:(n-1))/n))
+  x3 <- zero_fill_apod(x2, size, LB, SW_h)
+  x4 <- ph_corr(x3, GRPDLY*2*pi*c((0:(n-1))/n))
+  return(x4)
+}
+
 #' @export 
 ppm_zero_fill_apod <- function(ppm, info, spec_size){
   swp <- info[2] / info[3]
@@ -191,8 +200,8 @@ nloptr_wrapper <- function(data, x_order, obj_fun, param_start, param_constraint
     ub = param_constraints$ub,
     opts = nloptr_opts <- list(
       "algorithm" = optim_algorithm,
-      "xtol_rel" = 1.0e-6,
-      "xtol_abs" = 1.0e-6,
+      "xtol_rel" = 1.0e-10,
+      "xtol_abs" = 1.0e-10,
       "maxeval" = 1500,
       print_level = 0
     ),
@@ -224,4 +233,13 @@ plot_model_fit <- function(model_fit) {
     add_trace(x = ~ model_fit$dat$ppm, y = ~ model_fit$dat$fitted, name = "fit", mode = "lines", line = list(color = "orange")) %>%
     layout(xaxis = list(zeroline = FALSE, title = "ppm"), yaxis = list(title = "intensity")) 
   return(p)
+}
+
+#' @export 
+getFilename <- function(path){
+	x1 <- readLines(path, n=30)
+	fileNameInd <- grep("procs", x1)
+	fileName <- sub("\\$\\$ ", "", x1[fileNameInd])
+	
+	return(fileName)
 }

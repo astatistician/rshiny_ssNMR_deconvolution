@@ -1,6 +1,6 @@
 Package: ssNMR
 Title: What the Package Does (One Line, Title Case)
-Version: 1.0
+Version: 1.2
 Authors@R: 
     person(given = "Piotr",
            family = "Prostko",
@@ -12,8 +12,8 @@ Imports: shiny, shinyBS, plotly, tidyverse, PepsNMR, stringi, readxl,
         tibble, nnls, nloptr, bsplus
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.1.2
+RoxygenNote: 7.2.1
 NeedsCompilation: no
-Packaged: 2022-03-14 15:23:14 UTC; nsauwen
+Packaged: 2022-07-25 14:02:53 UTC; nsauwen
 Author: Piotr Prostko [aut, cre]
 Maintainer: Piotr Prostko <piotr.prostko@uhasselt.be>
