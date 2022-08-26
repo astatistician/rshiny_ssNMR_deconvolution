@@ -10,28 +10,12 @@ ui <- fluidPage(
 				column(
 						width = 3,
 						wellPanel(
-								conditionalPanel(condition = '!output.localMode',
-										radioButtons("inputSource", "Select input source", choices = c("Local computer", "Shared drive"))
-								),
-								conditionalPanel(condition = "!output.localMode && input.inputSource == 'Local computer'",
-										fileInput('files_form1', 'Choose form1 spectral files (1i, 1r and procs)',
+										fileInput('files_form1', 'Choose form1 csv files (intensity and params)',
 												multiple = TRUE),
-										fileInput('files_form2', 'Choose form2 spectral files (1i, 1r and procs)',
+										fileInput('files_form2', 'Choose form2 csv files (intensity and params)',
 												multiple = TRUE),
-										fileInput('files_mix', 'Choose mixture spectral files (1i, 1r and procs)',
+										fileInput('files_mix', 'Choose mixture csv files (intensity and params)',
 												multiple = TRUE)
-								),
-								conditionalPanel(condition = "output.localMode || input.inputSource == 'Shared drive'",
-										fileInput('file_paths_bn', fileInputLabel,
-														accept = c(".xlsx")
-												) %>% 
-												bsplus::shinyInput_label_embed(bsplus::shiny_iconlink() %>%
-																bsplus::bs_embed_tooltip(title = "All spectra should be acquired with the same spectral resolution and number of data points; otherwise correct data loading and deconvolution cannot be guaranteed.", placement ="left")
-												),
-										selectInput("path_form1", "Select the form1 spectrum path", choices="",  selectize=FALSE),
-										selectInput("path_form2", "Select the form2 spectrum path", choices="",  selectize=FALSE),
-										selectInput("path_mix", "Select the mixture spectrum path", choices="",  selectize=FALSE)
-								)	
 						),
 						wellPanel(
 								div(style="display:inline-block", numericInput(inputId = "ppm_range1", label = "Select lower ppm boundary", value = param_defaults$ppm_range1, step = 1, width = 140) %>% 

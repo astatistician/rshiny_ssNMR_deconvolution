@@ -1,5 +1,3 @@
-## Useful link for I/O server/client: https://ryouready.wordpress.com/2013/11/20/sending-data-from-client-to-server-and-back-using-shiny/
-
 # mapping: amo - form1, cr - form2
 
 server <- function(input, output, session) {
@@ -34,13 +32,8 @@ server <- function(input, output, session) {
 	
 #####
 	
-	observeEvent(c(input$path_form1, input$files_form1), {
-				
-				if(localMode || input$inputSource == "Shared drive"){
-					form1 <- tryCatch(read_spectrum(input$path_form1), error = function(err) return(err))
-				} else {
-					form1 <- tryCatch(read_spectrum2(input$files_form1), error = function(err) return(err))
-				} 
+	observeEvent(input$files_form1, {
+					form1 <- tryCatch(read_spectrum(input$files_form1), error = function(err) return(err))
 				
 				if(class(form1)[1] == "simpleError"){
 					showNotification(paste0("Error loading form1 spectrum files: ", form1$message), type = "error")
@@ -50,30 +43,20 @@ server <- function(input, output, session) {
 				}
 			}, ignoreInit = TRUE)
 	
-	observeEvent(c(input$path_form2, input$files_form2), {
-				
-				if(localMode || input$inputSource == "Shared drive"){
-					form2 <- tryCatch(read_spectrum(input$path_form2), error = function(err) return(err))
-				} else {
-					form2 <- tryCatch(read_spectrum2(input$files_form2), error = function(err) return(err))
-				} 
-				
-				if(class(form2)[1] == "simpleError"){
-					showNotification(paste0("Error loading form2 spectrum files: ", form2$message), type = "error")
-				} else{ 
-					results$form2 <- form2
-					showNotification("form2 spectrum files successfully loaded", type = "message")
-				}
-			}, ignoreInit = TRUE)
+	observeEvent(input$files_form2, {
+	  form2 <- tryCatch(read_spectrum(input$files_form2), error = function(err) return(err))
+	  
+	  if(class(form2)[1] == "simpleError"){
+	    showNotification(paste0("Error loading form2 spectrum files: ", form2$message), type = "error")
+	  } else{ 
+	    results$form2 <- form2
+	    showNotification("form2 spectrum files successfully loaded", type = "message")
+	  }
+	}, ignoreInit = TRUE)
 	
-	observeEvent(c(input$path_mix, input$files_mix), {
-				
-				if(localMode || input$inputSource == "Shared drive"){
-					mix <- tryCatch(read_spectrum(input$path_mix), error = function(err) return(err))
-				} else {
-					mix <- tryCatch(read_spectrum2(input$files_mix), error = function(err) return(err))
-				} 
-				
+	observeEvent(input$files_mix, {
+					mix <- tryCatch(read_spectrum(input$files_mix), error = function(err) return(err))
+					
 				if(class(mix)[1] == "simpleError"){
 					showNotification(paste0("Error loading mixture spectrum files: ", mix$message), type = "error")
 				} else{ 
@@ -82,29 +65,6 @@ server <- function(input, output, session) {
 				}
 			}, ignoreInit = TRUE)
 
-
-	# load a xlsx file with paths to spectra; these paths will be accessible for choosing 
-	# in the path_form1, path_form2, path_mix input fields
-	paths <- reactive({
-				req(input$file_paths_bn)
-				results$resultsFileLoaded <- FALSE
-				inFile <- input$file_paths_bn
-				filePaths_DF <- readxl::read_excel(inFile$datapath)
-				colNames <- colnames(filePaths_DF)
-				if(is.na(match("path", colNames))){
-					showNotification("Provided .xlsx file does not have the right format", type = "error")
-					filePaths_DF <- NULL
-				}
-				return(filePaths_DF)
-			}, label = "load xlsx file with paths to spectra")
-	
-	# update the individual path fields from the xlsx above
-	observe({
-				updateSelectInput(session, "path_form1", choices = paths()[,1])
-				updateSelectInput(session, "path_form2", choices = paths()[,1])
-				updateSelectInput(session, "path_mix", choices = paths()[,1])
-			}, label = "update path fields from the xlsx")
-	
 	# load parameter constraints for nloptr
 	param_constraints <- reactive({
 	      tmp_input <- reactiveValuesToList(input)
@@ -131,7 +91,7 @@ server <- function(input, output, session) {
 				mix <- results$mix
 				
 				info <- form2[[2]]
-				spec_size <- info[1, "SI"] + input$add_zeroes
+				spec_size <- info[1, "FTSIZE"] + input$add_zeroes
 				ppm <- as.numeric(names(form2$data[[1]]))
 				initial_ppm_range <- range(ppm)
 				
@@ -512,8 +472,8 @@ server <- function(input, output, session) {
 				paste0(
 						"Estimated form2 proportion [0-1 interval] ", round(model_fit()$solution["prop_form2"], 7),
 						"\nrmse (x10^6):", round(10^6 * model_fit()$solution["rmse"], 7),
-						"\nInitial spectrum size:", isolate(raw_data()[[2]][1, "SI"]),
-						"\nFinal spectrum size:", isolate(raw_data()[[2]][1, "SI"] + input$add_zeroes)
+						"\nInitial spectrum size:", isolate(raw_data()[[2]][1, "FTSIZE"]),
+						"\nFinal spectrum size:", isolate(raw_data()[[2]][1, "FTSIZE"] + input$add_zeroes)
 				)	
 			})
 	

@@ -1,100 +1,30 @@
-# reads in spectral data (a vectorized function - multiple spectra at once)
-# path: a character vector, length>=1. If type is set to "spectrum", then path to the folder containing "1r" and "1i" is expected
-#       (for Bruker data this is usually something like X\Y\pdata\Z, where X,Y,Z correspond to different experiment, spectra, processed files etc.) )
-
 #' @export 
-read_spectrum <- function(path) {
-  
-    n_files <- length(path)
-    data_out <- vector("list", n_files)
-  
-    params <- c("OFFSET", "SW_p", "SF", "SI", "BYTORDP", "NC_proc", "FTSIZE")
-    info_out <- matrix(nrow = n_files, ncol = length(params))
-    colnames(info_out) <- c(params)
+read_spectrum <- function(file_input) {
     
-    for (i in 1:n_files) {
-      x1 <- readLines(paste0(path[i], "/procs"))
-      x2 <- strsplit(x1, "=")
-      x3 <- lapply(x2, function(x) {
-        tmp <- x %>%
-          stri_replace_all("", regex = "#*\\$*") %>%
-          stri_trim_both()
-      })
-      
-      params_all <- unlist(lapply(x3, function(x) x[1]))
-      values_all <- unlist(lapply(x3, function(x) x[2]))
-      params_ind <- match(params, params_all)
-      info_out[i, ] <- as.numeric(values_all[params_ind])
-      
-      nspec <- info_out[i, "SI"]
-      swp <- info_out[i, "SW_p"] / info_out[i, "SF"]
-      dppm <- swp / nspec
-      ppm <- seq(info_out[i, "OFFSET"], (info_out[i, "OFFSET"] - swp), by = -dppm)
-      # the ppm of last point may not coincide with the sequence right limit
-      ppm <- ppm[1 : nspec]
-      
-      spec_r <- readBin(paste0(path[i], "/1r"),
-                        what = "int", n = nspec,
-                        size = 4L, endian = "little"
-      )
-      spec_i <- readBin(paste0(path[i], "/1i"),
-                        what = "int", n = nspec,
-                        size = 4L, endian = "little"
-      )
-      spec <- complex(real = spec_r, imaginary = spec_i)
-      names(spec) <- ppm
-      data_out[[i]] <- spec
-    }
-    return(list(data = data_out, info = info_out))
-}
-
-# Same as read_spectrum but this version is only needed in case of client-server file interaction
-#' @export 
-read_spectrum2 <- function(filesDF) {
-  
-    n_files <- 1
-    data_out <- vector("list", n_files)
-    fileNames <- filesDF$name
-    filePaths <- filesDF$datapath
-  
-    params <- c("OFFSET", "SW_p", "SF", "SI", "BYTORDP", "NC_proc", "FTSIZE")
-    info_out <- matrix(nrow = n_files, ncol = length(params))
-    colnames(info_out) <- c(params)
+    int_ind <- stri_detect(file_input$name, fixed = "intensity")
     
-    for (i in 1:n_files) {
-      x1 <- readLines(filePaths[grep("procs", fileNames)])
-      x2 <- strsplit(x1, "=")
-      x3 <- lapply(x2, function(x) {
-        tmp <- x %>%
-          stri_replace_all("", regex = "#*\\$*") %>%
-          stri_trim_both()
-      })
-      
-      params_all <- unlist(lapply(x3, function(x) x[1]))
-      values_all <- unlist(lapply(x3, function(x) x[2]))
-      params_ind <- match(params, params_all)
-      info_out[i, ] <- as.numeric(values_all[params_ind])
-      
-      nspec <- info_out[i, "SI"]
-      swp <- info_out[i, "SW_p"] / info_out[i, "SF"]
-      dppm <- swp / nspec
-      ppm <- seq(info_out[i, "OFFSET"], (info_out[i, "OFFSET"] - swp), by = -dppm)
-	  # the ppm of last point may not coincide with the sequence right limit
-	  ppm <- ppm[1 : nspec]
-      
-      spec_r <- readBin(filePaths[grep("1r", fileNames)],
-                        what = "int", n = nspec,
-                        size = 4L, endian = "little"
-      )
-      spec_i <- readBin(filePaths[grep("1i", fileNames)],
-                        what = "int", n = nspec,
-                        size = 4L, endian = "little"
-      )
-      spec <- complex(real = spec_r, imaginary = spec_i)
-      names(spec) <- ppm
-      data_out[[i]] <- spec
-    }
-    return(list(data = data_out, info = info_out))
+    #intensity file
+    path_intensity <- file_input[int_ind, "datapath"]
+    intensity <- read.csv(path_intensity, header = TRUE)[,1]
+    
+    #param file
+    path_param <- file_input[!int_ind, "datapath"]
+    tmp <- read.csv(path_param, header = TRUE)
+    param <- matrix(as.numeric(tmp), nrow = 1)
+    colnames(param) <- names(tmp)
+  
+    info_out <- param
+    
+    # compute ppm values  
+    nspec <- info_out[1, "FTSIZE"]
+    swp <- info_out[1, "SW_p"] / info_out[1, "SF"]
+    dppm <- swp / nspec
+    ppm <- seq(info_out[1, "OFFSET"], (info_out[1, "OFFSET"] - swp), by = -dppm)
+    # the ppm of last point may not coincide with the sequence right limit
+    ppm <- ppm[1 : nspec]
+    
+    names(intensity) <- ppm
+    return(list(data = list(intensity), info = info_out))
 }
 
 #' @export 
