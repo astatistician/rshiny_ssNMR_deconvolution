@@ -5,7 +5,7 @@ if(localMode){
 }
 
 ui <- fluidPage(
-		headerPanel("Semi-automated pre-processing and quantitative evaluation of ssNMR mixture spectra"),
+		headerPanel("Automated deconvolution of solid-state NMR mixture spectra of Active Pharmaceutical Ingredients"),
 		fluidRow(
 				column(
 						width = 3,
