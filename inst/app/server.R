@@ -353,16 +353,6 @@ server <- function(input, output, session) {
 				  next_row[c("fit_type", estim_order)] <- c("proportion and pre-processing parameters", ms[estim_order])
 				}
 				
-				if(!localMode && input$inputSource == "Local computer"){
-					# get file paths out of 'procs' files
-					filePath_form1 <- getFilename(input$files_form1$datapath[grep("procs", input$files_form1$name)])
-					filePath_form2 <- getFilename(input$files_form2$datapath[grep("procs", input$files_form2$name)])
-					filePath_mix <- getFilename(input$files_mix$datapath[grep("procs", input$files_mix$name)])
-					next_row["path_form1"] <-  filePath_form1
-					next_row["path_form2"] <-  filePath_form2
-					next_row["path_mix"] <-  filePath_mix
-				}
-				
 				track_inputs_rv$x <- rbind(track_inputs_rv$x, next_row)
 			}, label = "update the underlying estimate tracking file", ignoreInit = TRUE)
 	
@@ -443,27 +433,6 @@ server <- function(input, output, session) {
 	    p <- layout(p, xaxis = list(zeroline = FALSE, range = c(zoom()$"xaxis.range[0]", zoom()$"xaxis.range[1]"), title = "ppm"), yaxis = list(title = "intensity", range = c(zoom()$"yaxis.range[0]", zoom()$"yaxis.range[1]")))
 	  }
 	  
-	  # Add file paths in the plot window
-		if(!localMode && input$inputSource == "Local computer"){
-			# get file paths out of 'procs' files
-			filePath_form1 <- getFilename(input$files_form1$datapath[grep("procs", input$files_form1$name)])
-			filePath_form2 <- getFilename(input$files_form2$datapath[grep("procs", input$files_form2$name)])
-			filePath_mix <- getFilename(input$files_mix$datapath[grep("procs", input$files_mix$name)])
-		} else{
-			filePath_form1 <- input$path_form1
-			filePath_form2 <- input$path_form2
-			filePath_mix <- input$path_mix
-		}
-		filePath_form1 <- paste("form1:", filePath_form1)
-		filePath_form2 <- paste("form2:", filePath_form2)
-		filePath_mix <- paste("mix:   ", filePath_mix)
-		textPos_x <- max(model_fit()$dat$ppm) - max(nchar(c(filePath_form1, filePath_form2, filePath_mix))) *
-				diff(range(model_fit()$dat$ppm))/320
-		textPos_y <- max(model_fit()$dat$mix)
-		p <- layout(p, annotations = list(text = paste(filePath_form1, filePath_form2,
-						filePath_mix, sep = "\n"), x = textPos_x, y = textPos_y,
-						showarrow=FALSE, align = "left"))
-		
 	  p <- plotly_build(p) %>%
 	    event_register("plotly_legendclick")
 	  for (i in seq_along(p$x$data)) {

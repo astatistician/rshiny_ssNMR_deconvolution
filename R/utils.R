@@ -168,12 +168,3 @@ plot_model_fit <- function(model_fit) {
     layout(xaxis = list(zeroline = FALSE, title = "ppm"), yaxis = list(title = "intensity")) 
   return(p)
 }
-
-#' @export 
-getFilename <- function(path){
-	x1 <- readLines(path, n=30)
-	fileNameInd <- grep("procs", x1)
-	fileName <- sub("\\$\\$ ", "", x1[fileNameInd])
-	
-	return(fileName)
-}
