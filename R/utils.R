@@ -16,7 +16,9 @@ read_spectrum <- function(file_input) {
     info_out <- param
     
     # compute ppm values  
-    nspec <- info_out[1, "FTSIZE"]
+    nspec <- length(intensity)
+    info_out <- cbind(info_out, FTSIZE = nspec)
+    
     swp <- info_out[1, "SW_p"] / info_out[1, "SF"]
     dppm <- swp / nspec
     ppm <- seq(info_out[1, "OFFSET"], (info_out[1, "OFFSET"] - swp), by = -dppm)
@@ -39,12 +41,14 @@ zero_fill_apod <- function(x, size, LB, SW_h) {
 }
 
 #' @export
-zero_fill_apod2 <- function(x, size, LB, SW_h, GRPDLY) {
-  n <- length(x)
-  x2 <- ph_corr(x, -GRPDLY*2*pi*c((0:(n-1))/n))
-  x3 <- zero_fill_apod(x2, size, LB, SW_h)
-  x4 <- ph_corr(x3, GRPDLY*2*pi*c((0:(n-1))/n))
-  return(x4)
+zero_fill_apod2 <- function(x, size, LB, SW_h, GRPDLY = 0) {
+  if (!(GRPDLY == 0)){
+    n <- length(x)
+    x2 <- ph_corr(x, -GRPDLY*2*pi*c((0:(n-1))/n))
+    x3 <- zero_fill_apod(x2, size, LB, SW_h)
+    x4 <- ph_corr(x3, GRPDLY*2*pi*c((0:(n-1))/n))
+    return(x4)
+  } else return(zero_fill_apod(x, size, LB, SW_h))
 }
 
 #' @export 

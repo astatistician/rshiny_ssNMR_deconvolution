@@ -91,9 +91,9 @@ server <- function(input, output, session) {
 				mix <- results$mix
 				
 				info <- form2[[2]]
-				spec_size <- info[1, "FTSIZE"] + input$add_zeroes
 				ppm <- as.numeric(names(form2$data[[1]]))
 				initial_ppm_range <- range(ppm)
+				GRPDLY_df <- list(form1[[2]][1, "GRPDLY"], form2[[2]][1, "GRPDLY"], mix[[2]][1, "GRPDLY"])
 				
 				form1 <- form1$data[[1]]
 				form2 <- form2$data[[1]]
@@ -106,7 +106,11 @@ server <- function(input, output, session) {
 				ppm_tmp <- as.numeric(names(mix))
 				mix <- complex(real = approx(x = ppm_tmp, y = Re(mix), xout = ppm)$y, 
 				                 imaginary = approx(x = ppm_tmp, y = Im(mix), xout = ppm)$y)
-				df <-  bind_cols(ppm = ppm, data.frame(form1 = unclass(form1), form2 = unclass(form2), mix = unclass(mix)))
+				df <- bind_cols(ppm = ppm, data.frame(form1 = unclass(form1), form2 = unclass(form2), mix = unclass(mix))) %>%
+				  drop_na()
+				
+				info[1, "FTSIZE"] <- nrow(df)
+				spec_size <- info[1, "FTSIZE"] + input$add_zeroes
 				
 				if (!any(is.na(c(input$ppm_range1, input$ppm_range2)))) {
 					if (input$ppm_range1 >= input$ppm_range2) {
@@ -116,7 +120,7 @@ server <- function(input, output, session) {
 					}
 				}
 				
-				return(list(df, info, spec_size, initial_ppm_range))
+				return(list(df, info, spec_size, initial_ppm_range, GRPDLY = GRPDLY_df))
 			}, label = "read in spectra")
 	
 	# update the pivot point field with the ppm value corresponding to 
@@ -143,23 +147,29 @@ server <- function(input, output, session) {
 				mix <- raw_data[[1]]$mix
 				info <- raw_data[[2]]
 				spec_size <- raw_data[[3]]
+				GRPDLY <- raw_data$GRPDLY
 				
 				if (input$add_zeroes > 0 || input$lb_global > 0) {
 				  
 				  ppm <- ppm_zero_fill_apod(ppm = ppm, info = info, spec_size)
-					form1 <- zero_fill_apod(form1, spec_size, input$lb_global, info[2])
-					form2 <- zero_fill_apod(form2, spec_size, input$lb_global, info[2])
-					mix <- zero_fill_apod(mix, spec_size, input$lb_global, info[2])
+					form1 <- zero_fill_apod2(form1, spec_size, input$lb_global, info[2], GRPDLY = GRPDLY[[1]])
+					form2 <- zero_fill_apod2(form2, spec_size, input$lb_global, info[2], GRPDLY = GRPDLY[[2]])
+					mix <- zero_fill_apod2(mix, spec_size, input$lb_global, info[2], GRPDLY = GRPDLY[[3]])
 				} 
 				
 				# additional line broadening of the form1 template
 				if (input$lb_form1 > 0) {
-				  form1 <- zero_fill_apod(form1, spec_size, input$lb_form1, info[2])
+				  form1 <- zero_fill_apod2(form1, spec_size, input$lb_form1, info[2], GRPDLY = GRPDLY[[1]])
 				}
 				
 				# additional line broadening of the form2 template
 				if (input$lb_form2 > 0) {
-					form2 <- zero_fill_apod(form2, spec_size, input$lb_form2, info[2])
+					form2 <- zero_fill_apod2(form2, spec_size, input$lb_form2, info[2], GRPDLY = GRPDLY[[2]])
+				}
+				
+				# additional line broadening of the mixture template
+				if (input$lb_mix > 0) {
+				  mix <- zero_fill_apod2(mix, spec_size, input$lb_mix, info[2], GRPDLY = GRPDLY[[2]])
 				}
 				
 				return(list(data.frame(ppm = ppm, form1 = form1, form2 = form2, mix = mix), info, spec_size))
