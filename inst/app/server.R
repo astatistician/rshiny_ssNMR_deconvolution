@@ -11,7 +11,7 @@ server <- function(input, output, session) {
 	param_defaults_names <- names(param_defaults)
 	preproc_param_names <- param_defaults_names[param_defaults_names %in% c("prop_form2", "ppm_form1", "ppm_mix", "ph0_mix", "ph1_mix")]
 	adv_param_names <- param_defaults_names[param_defaults_names %in% 
-	                                          c("add_zeroes", "lb_global", "lb_form1", "lb_form2", "optim_algorithm", "ppm_form1_lower", "ppm_form1_upper", "ppm_mix_lower" ,"ppm_mix_upper", "ph0_mix_lower", "ph0_mix_upper", "ph1_mix_lower", "ph1_mix_upper")]
+	                                          c("add_zeroes", "lb_global", "lb_form1", "lb_form2", "lb_mix", "optim_algorithm", "ppm_form1_lower", "ppm_form1_upper", "ppm_mix_lower" ,"ppm_mix_upper", "ph0_mix_lower", "ph0_mix_upper", "ph1_mix_lower", "ph1_mix_upper")]
 	start_val_names <- param_defaults_names[str_detect(param_defaults_names, "_start")]
 	saved_params <- matrix(ncol = length(param_defaults_names) + 1, nrow = 0); colnames(saved_params) <- c("id", 	param_defaults_names)
 	
