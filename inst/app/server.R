@@ -381,15 +381,6 @@ server <- function(input, output, session) {
 				track_inputs_rv$x[nrow(track_inputs_rv$x), "comment"] <- input$user_comments
 				showNotification("The comment has been saved", type = "message", duration = 2)
 				updateTextAreaInput(session, inputId = "user_comments", value = "")
-			})
-	
-	# Re-initialize datasets at NULL when switching input source
-	observeEvent(input$inputSource, {
-				results$form1 <- NULL
-				results$form2 <- NULL
-				results$mix <- NULL
-			})
-	##
 	
 	# event for retaining zoom between data recalculations in plotly graph
 	zoom <- reactive({
@@ -498,14 +489,4 @@ server <- function(input, output, session) {
 				updateNumericInput(session, inputId = "pivot_point", value = dat[["pivot_point"]]) # Also take this value from result file (in case no file paths are available)
 				updateTextInput(session, inputId = "optim_algorithm", value = as.character(dat["optim_algorithm"]))
 			}, label = "load in estimated results")
-	
-	
-	output$localMode <- reactive({
-				return(localMode)
-			})
-	outputOptions(output, 'localMode', suspendWhenHidden=FALSE)
-	
 }
-
-
-
