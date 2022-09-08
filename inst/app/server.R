@@ -41,7 +41,7 @@ server <- function(input, output, session) {
 					results$form1 <- form1
 					showNotification("form1 spectrum files successfully loaded", type = "message")
 				}
-			}, ignoreInit = TRUE)
+			}, ignoreInit = TRUE, label = "loading form1 spectrum")
 	
 	observeEvent(input$files_form2, {
 	  form2 <- tryCatch(read_spectrum(input$files_form2), error = function(err) return(err))
@@ -52,7 +52,7 @@ server <- function(input, output, session) {
 	    results$form2 <- form2
 	    showNotification("form2 spectrum files successfully loaded", type = "message")
 	  }
-	}, ignoreInit = TRUE)
+	}, ignoreInit = TRUE, label = "loading form2 spectrum")
 	
 	observeEvent(input$files_mix, {
 					mix <- tryCatch(read_spectrum(input$files_mix), error = function(err) return(err))
@@ -63,7 +63,7 @@ server <- function(input, output, session) {
 					results$mix <- mix
 					showNotification("Mixture spectrum files successfully loaded", type = "message")
 				}
-			}, ignoreInit = TRUE)
+			}, ignoreInit = TRUE, label = "loading mix spectrum")
 
 	# load parameter constraints for nloptr
 	param_constraints <- reactive({
@@ -293,7 +293,7 @@ server <- function(input, output, session) {
     
     updateNumericInput(session, inputId = "ppm_mix_lower", value = -max_shift)
     updateNumericInput(session, inputId = "ppm_mix_upper", value = max_shift)
-    })
+    }, label = "update the boundaries of horizontal shifts")
 	
 	# after fitting with nloptr, update the corresponding inputs
 	observeEvent(input$fit_bn, {
@@ -375,30 +375,31 @@ server <- function(input, output, session) {
 	observeEvent(input$approve_bn, {
 				track_inputs_rv$x[nrow(track_inputs_rv$x), "approve_fit"] <- "approved"
 				showNotification("The fit has been approved", type = "message", duration = 2)
-			})
+			}, label = "approve the fit")
 	
 	observeEvent(input$save_user_comments_bn, {
 				track_inputs_rv$x[nrow(track_inputs_rv$x), "comment"] <- input$user_comments
 				showNotification("The comment has been saved", type = "message", duration = 2)
 				updateTextAreaInput(session, inputId = "user_comments", value = "")
+			}, label = "save user comments")
 	
 	# event for retaining zoom between data recalculations in plotly graph
 	zoom <- reactive({
 	  req(model_fit())
 	  event_data("plotly_relayout", source = "p1")
-	  })
+	  }, label = "zoom")
 	
 	# event for retaining only selected lines between data recalculcations in the plotly graph
 	legend_click <- reactive({
 	  # to avoid warnings (https://github.com/ropensci/plotly/issues/1528)
 	  event_data("plotly_legendclick", source = "p1")
-	  })
+	  }, label = "clicking at the legened")
 	
 	# register clicking event to update pivot point value
 	plot_click <- reactive({
 	  req(model_fit())
 	  event_data("plotly_click", source = "p1")
-	  })
+	  }, label = "pivot point reactive")
 	
 	# showing/hiding lines by clicking on the legend 
 	legend_items <- reactiveValues("form1 reference" = TRUE, "form2 reference" = TRUE, "mixture spectrum" = TRUE, "residuals" = TRUE, "fit" = TRUE)
@@ -406,7 +407,7 @@ server <- function(input, output, session) {
 				if (!is.null(legend_click()$name)) {
 					legend_items[[legend_click()$name]] <- ifelse(legend_click()$visible == TRUE, legend_states[[2]], legend_states[[1]])
 				}
-			})
+			}, label = "turn on/off lines via legend")
 	
 	observeEvent(plot_click(), {
 				updateNumericInput(session, inputId = "pivot_point", value = plot_click()$x)
@@ -430,7 +431,7 @@ server <- function(input, output, session) {
 	    p$x$data[[i]]$visible <- legend_items[[p$x$data[[i]]$name]]
 	  }
 	  return(p)
-	}, label = "call plot function and modify legend and axis range")
+	}, label = "call plot function")
 	
 	output$fit_plot_out <- renderPlotly({
 	  req(plot_object())
