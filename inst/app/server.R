@@ -411,18 +411,30 @@ server <- function(input, output, session) {
 	
 	observeEvent(plot_click(), {
 				updateNumericInput(session, inputId = "pivot_point", value = plot_click()$x)
-			})
+			}, label = "set the pivot point")
 	
-	plot_object <- eventReactive(input$fit_bn, {
-	  req(model_fit())
-	  p <- plot_model_fit(model_fit()) 
-	  # the output of plotly_relayout changes depending on the action: if you zoom in
-	  # xaxis.range[0], xaxis.range[1], yaxis.range[0],	yaxis.range[1] values will be available
-	  # if you don't zoom in, the output will be NULL or some other named vectors of length different than 4
-	  if (is.null(zoom()) | length(zoom()) != 4) {
-	    p <- layout(p, xaxis = list(zeroline = FALSE, autorange = "reversed", title = "ppm"), yaxis = list(title = "intensity"))
-	  } else {
-	    p <- layout(p, xaxis = list(zeroline = FALSE, range = c(zoom()$"xaxis.range[0]", zoom()$"xaxis.range[1]"), title = "ppm"), yaxis = list(title = "intensity", range = c(zoom()$"yaxis.range[0]", zoom()$"yaxis.range[1]")))
+	plot_object <- eventReactive(c(input$fit_bn, raw_data()), {
+	  browser()
+	  if (input$fit_bn){
+  	  req(model_fit())
+  	  p <- plot_model_fit(model_fit()) 
+  	  # the output of plotly_relayout changes depending on the action: if you zoom in
+  	  # xaxis.range[0], xaxis.range[1], yaxis.range[0],	yaxis.range[1] values will be available
+  	  # if you don't zoom in, the output will be NULL or some other named vectors of length different than 4
+  	  if (is.null(zoom()) | length(zoom()) != 4) {
+  	    p <- layout(p, xaxis = list(zeroline = FALSE, autorange = "reversed", title = "ppm"), yaxis = list(title = "intensity"))
+  	  } else {
+  	    p <- layout(p, xaxis = list(zeroline = FALSE, range = c(zoom()$"xaxis.range[0]", zoom()$"xaxis.range[1]"), title = "ppm"), yaxis = list(title = "intensity", range = c(zoom()$"yaxis.range[0]", zoom()$"yaxis.range[1]")))
+  	  }
+	  } else if (isTruthy(raw_data())){
+	  #if (all(isTruthy(raw_data()))){
+	    tmp <- raw_data()[[1]] %>% mutate(across(-ppm, ~norm_sum(.x)))
+	    # tmp <- sapply(raw_data()[[1]], Re)
+	    # tmp <- as.data.frame(tmp)
+	    p <- plot_ly(x = ~ tmp$ppm, y = ~ tmp$form1, type = "scatter", mode = "lines", name = "form1 reference", line = list(width = 2, color = "black"), source = "p1") %>%
+	      add_trace(x = ~ tmp$ppm, y = ~ tmp$form2, name = "form2 reference", mode = "lines", line = list(color = "green")) %>%
+	      add_trace(x = ~ tmp$ppm, y = ~ tmp$mix, name = "mixture spectrum", mode = "lines", line = list(color = "4682B4")) %>%
+	      layout(xaxis = list(zeroline = FALSE, autorange = "reversed", title = "ppm"), yaxis = list(title = "intensity")) 
 	  }
 	  
 	  p <- plotly_build(p) %>%
