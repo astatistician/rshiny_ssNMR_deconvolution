@@ -5,11 +5,28 @@ read_spectrum <- function(file_input) {
     
     #intensity file
     path_intensity <- file_input[int_ind, "datapath"]
-    intensity <- read.csv(path_intensity, header = TRUE)[,1]
+    intensity_init <- read.csv(path_intensity, header = TRUE)
+    intensity <- intensity_init[,1]
+    
+    # checks on the intensity file
+    stopifnot(length(intensity)>1, #"At least two data points are required.")
+      all(is.complex(intensity)), #"Intensity values should be complex numbers")
+      !is.null(names(intensity_init)) #"Provide column name ('intensity') in the first row")
+    )
     
     #param file
     path_param <- file_input[!int_ind, "datapath"]
     tmp <- read.csv(path_param, header = TRUE)
+    
+    # checks on the param file
+    stopifnot(nrow(tmp) == 1)
+    miss_params1 <- setdiff(c("OFFSET", "SW_p", "SF", "GRPDLY"), colnames(tmp))
+    miss_params2 <- colnames(tmp)[is.na(tmp[1, ]) | is.null(tmp[1, ])]
+    miss_params <- union(miss_params1, miss_params2)
+    
+    if (length(miss_params) > 0) stop(paste("The following parameters were not provided in the params file:", 
+                                            paste(miss_params, collapse = ', ')))
+    
     param <- matrix(as.numeric(tmp), nrow = 1)
     colnames(param) <- names(tmp)
   
