@@ -123,6 +123,7 @@ server <- function(input, output, session) {
 					} else {
 					  raw_data_tmp <- raw_data()
 					  raw_data_tmp[[1]] <- subset(raw_data_tmp[[1]], raw_data_tmp[[1]]$ppm >= input$ppm_range1 & raw_data_tmp[[1]]$ppm <= input$ppm_range2)
+					  raw_data_tmp[[2]][1, "FTSIZE"] <- nrow(raw_data_tmp[[1]])
 					  return(raw_data_tmp)
 					}
 				} else return(raw_data()) 
@@ -466,7 +467,7 @@ server <- function(input, output, session) {
 	  rv_output_stats$out_text <- paste0(
 	    "Estimated form2 proportion [0-1 interval] ", round(model_fit()$solution["prop_form2"], 7),
 	    "\nrmse (x10^6):", round(10^6 * model_fit()$solution["rmse"], 7),
-	    "\nInitial spectrum size:", isolate(raw_data_subset()[[2]][1, "FTSIZE"]),
+	    "\nInitial spectrum size:", isolate(raw_data()[[2]][1, "FTSIZE"]),
 	    "\nFinal spectrum size:", isolate(raw_data_subset()[[2]][1, "FTSIZE"] + input$add_zeroes)
 	    )
 	}, label = "Update fit stats after model fitting")
