@@ -454,15 +454,26 @@ server <- function(input, output, session) {
 	  rv_plot$p
 			})
 	
+	rv_output_stats <- reactiveValues(out_text = "")
+	
+	observeEvent(raw_data(), {
+	  req(raw_data())
+	  rv_output_stats$out_text = ""
+	}, label = "Update fit stats with empty string")
+	
+	observeEvent(model_fit(), {
+	  req(model_fit())
+	  rv_output_stats$out_text <- paste0(
+	    "Estimated form2 proportion [0-1 interval] ", round(model_fit()$solution["prop_form2"], 7),
+	    "\nrmse (x10^6):", round(10^6 * model_fit()$solution["rmse"], 7),
+	    "\nInitial spectrum size:", isolate(raw_data_subset()[[2]][1, "FTSIZE"]),
+	    "\nFinal spectrum size:", isolate(raw_data_subset()[[2]][1, "FTSIZE"] + input$add_zeroes)
+	    )
+	}, label = "Update fit stats after model fitting")
+	
 	output$fit_stats_out <- renderText({
-				req(model_fit())
-				paste0(
-						"Estimated form2 proportion [0-1 interval] ", round(model_fit()$solution["prop_form2"], 7),
-						"\nrmse (x10^6):", round(10^6 * model_fit()$solution["rmse"], 7),
-						"\nInitial spectrum size:", isolate(raw_data()[[2]][1, "FTSIZE"]),
-						"\nFinal spectrum size:", isolate(raw_data()[[2]][1, "FTSIZE"] + input$add_zeroes)
-				)	
-			})
+	    rv_output_stats$out_text
+	  })
 	
 	# download a csv file with the estimated parameters
 	output$download_params_bn <- downloadHandler(
