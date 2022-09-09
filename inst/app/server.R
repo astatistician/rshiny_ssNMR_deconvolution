@@ -112,42 +112,47 @@ server <- function(input, output, session) {
 				info[1, "FTSIZE"] <- nrow(df)
 				spec_size <- info[1, "FTSIZE"] + input$add_zeroes
 				
-				if (!any(is.na(c(input$ppm_range1, input$ppm_range2)))) {
-					if (input$ppm_range1 >= input$ppm_range2) {
-						showNotification("The lower ppm boundary must be smaller than the upper boundary. The model will be fitted on the entire initial ppm range.", type = "warning") 
-					} else {
-						df <- subset(df, ppm >= input$ppm_range1 & ppm <= input$ppm_range2)
-					}
-				}
 				
 				return(list(df, info, spec_size, initial_ppm_range, GRPDLY = GRPDLY_df))
 			}, label = "read in spectra")
 	
+	raw_data_subset <- reactive({
+				if (!any(is.na(c(input$ppm_range1, input$ppm_range2)))) {
+					if (input$ppm_range1 >= input$ppm_range2) {
+						showNotification("The lower ppm boundary must be smaller than the upper boundary. The model will be fitted on the entire initial ppm range.", type = "warning") 
+					} else {
+					  raw_data_tmp <- raw_data()
+					  raw_data_tmp[[1]] <- subset(raw_data_tmp[[1]], raw_data_tmp[[1]]$ppm >= input$ppm_range1 & raw_data_tmp[[1]]$ppm <= input$ppm_range2)
+					  return(raw_data_tmp)
+					}
+				} else return(raw_data()) 
+	})
+	
 	# update the pivot point field with the ppm value corresponding to 
 	# the most abundant peak of the selected mixture spectrum
 	max_peak_of_mix <- reactive({
-	  tmp <- raw_data()
+	  tmp <- raw_data_subset()
 	  tmp[[1]]$ppm[which.max(abs(Re(tmp[[1]]$mix)))]
 	  })
 	
 	observeEvent(results$mix, {
-				tmp <- raw_data()
+				tmp <- raw_data_subset()
 				req(tmp, cancelOutput = TRUE)
 				updateNumericInput(session, inputId = "pivot_point", value = max_peak_of_mix())
 			}, label = "update pivot point to the largest peak of mix", ignoreInit = TRUE)
 	
 	# process all three spectra at once (i.e. zero filling and apodization)
 	proc_data <- reactive({
-				raw_data <- raw_data()
-				req(raw_data, cancelOutput = TRUE)
+				raw_data_subset <- raw_data_subset()
+				req(raw_data_subset, cancelOutput = TRUE)
 				
-				ppm <- raw_data[[1]]$ppm
-				form1 <- raw_data[[1]]$form1
-				form2 <- raw_data[[1]]$form2
-				mix <- raw_data[[1]]$mix
-				info <- raw_data[[2]]
-				spec_size <- raw_data[[3]]
-				GRPDLY <- raw_data$GRPDLY
+				ppm <- raw_data_subset[[1]]$ppm
+				form1 <- raw_data_subset[[1]]$form1
+				form2 <- raw_data_subset[[1]]$form2
+				mix <- raw_data_subset[[1]]$mix
+				info <- raw_data_subset[[2]]
+				spec_size <- raw_data_subset[[3]]
+				GRPDLY <- raw_data_subset$GRPDLY
 				
 				if (input$add_zeroes > 0 || input$lb_global > 0) {
 				  
@@ -413,9 +418,18 @@ server <- function(input, output, session) {
 				updateNumericInput(session, inputId = "pivot_point", value = plot_click()$x)
 			}, label = "set the pivot point")
 	
-	plot_object <- eventReactive(c(input$fit_bn, raw_data()), {
-	  browser()
-	  if (input$fit_bn){
+  rv_plot <- reactiveValues(p = NULL)
+  
+  observeEvent(raw_data(), {
+    req(raw_data())
+    tmp <- raw_data()[[1]] %>% mutate(across(-ppm, ~norm_sum(.x)))
+    rv_plot$p <- plot_ly(x = ~ tmp$ppm, y = ~ tmp$form1, type = "scatter", mode = "lines", name = "form1 reference", line = list(width = 2, color = "black"), source = "p1") %>%
+      add_trace(x = ~ tmp$ppm, y = ~ tmp$form2, name = "form2 reference", mode = "lines", line = list(color = "green")) %>%
+      add_trace(x = ~ tmp$ppm, y = ~ tmp$mix, name = "mixture spectrum", mode = "lines", line = list(color = "4682B4")) %>%
+      layout(xaxis = list(zeroline = FALSE, autorange = "reversed", title = "ppm"), yaxis = list(title = "intensity")) 
+  })
+  
+	observeEvent(input$fit_bn, {
   	  req(model_fit())
   	  p <- plot_model_fit(model_fit()) 
   	  # the output of plotly_relayout changes depending on the action: if you zoom in
@@ -426,28 +440,18 @@ server <- function(input, output, session) {
   	  } else {
   	    p <- layout(p, xaxis = list(zeroline = FALSE, range = c(zoom()$"xaxis.range[0]", zoom()$"xaxis.range[1]"), title = "ppm"), yaxis = list(title = "intensity", range = c(zoom()$"yaxis.range[0]", zoom()$"yaxis.range[1]")))
   	  }
-	  } else if (isTruthy(raw_data())){
-	  #if (all(isTruthy(raw_data()))){
-	    tmp <- raw_data()[[1]] %>% mutate(across(-ppm, ~norm_sum(.x)))
-	    # tmp <- sapply(raw_data()[[1]], Re)
-	    # tmp <- as.data.frame(tmp)
-	    p <- plot_ly(x = ~ tmp$ppm, y = ~ tmp$form1, type = "scatter", mode = "lines", name = "form1 reference", line = list(width = 2, color = "black"), source = "p1") %>%
-	      add_trace(x = ~ tmp$ppm, y = ~ tmp$form2, name = "form2 reference", mode = "lines", line = list(color = "green")) %>%
-	      add_trace(x = ~ tmp$ppm, y = ~ tmp$mix, name = "mixture spectrum", mode = "lines", line = list(color = "4682B4")) %>%
-	      layout(xaxis = list(zeroline = FALSE, autorange = "reversed", title = "ppm"), yaxis = list(title = "intensity")) 
-	  }
 	  
 	  p <- plotly_build(p) %>%
 	    event_register("plotly_legendclick")
 	  for (i in seq_along(p$x$data)) {
 	    p$x$data[[i]]$visible <- legend_items[[p$x$data[[i]]$name]]
 	  }
-	  return(p)
+	  rv_plot$p <- p
 	}, label = "call plot function")
 	
 	output$fit_plot_out <- renderPlotly({
-	  req(plot_object())
-	  plot_object()
+	  req(rv_plot$p)
+	  rv_plot$p
 			})
 	
 	output$fit_stats_out <- renderText({
