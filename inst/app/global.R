@@ -13,9 +13,9 @@ to_rad_const <- pi/180
 estim_order = c("prop_form2", "ph0_mix", "ph1_mix", "ppm_mix", "ppm_form1")
 
 param_defaults <- list(
-  path_form1 = "",	
-  path_form2 = "",	
-  path_mix = "",	
+  description_form1 = "",	
+  description_form2 = "",	
+  description_mix = "",	
   optim_algorithm = "NLOPT_LN_SBPLX",	
   fit_type = "",	
   approve_fit = "",

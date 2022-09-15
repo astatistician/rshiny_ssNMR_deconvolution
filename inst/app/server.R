@@ -2,7 +2,7 @@
 
 server <- function(input, output, session) {
 	
-	#options(shiny.reactlog = TRUE)
+	options(shiny.reactlog = TRUE)
 	
 ##### Local variable & function definitions:
 	legend_states <- list(TRUE, "legendonly")
@@ -33,7 +33,7 @@ server <- function(input, output, session) {
 #####
 	
 	observeEvent(input$files_form1, {
-					form1 <- tryCatch(read_spectrum(input$files_form1), error = function(err) return(err))
+			form1 <- tryCatch(read_spectrum(input$files_form1), error = function(err) return(err))
 				
 				if(class(form1)[1] == "simpleError"){
 					showNotification(paste0("Error loading form1 spectrum files: ", form1$message), type = "error")
@@ -339,13 +339,15 @@ server <- function(input, output, session) {
 				track_inputs_rv$count_rows <- track_inputs_rv$count_rows+1
 				curr_input_vals <- reactiveValuesToList(input)
 				next_row <- character(ncol(saved_params)); names(next_row) <- colnames(saved_params)
-				# first, assign default values
 				
+				# first, assign default values
 				next_row[param_defaults_names] <- unlist(param_defaults)
 				vals <- curr_input_vals[na.omit(match(param_defaults_names, names(curr_input_vals)))] %>%
 						compact() %>% unlist()
+				
 				# next, update them with input values
 				next_row[names(vals)] <- vals
+				
 				# finally, assign model estimated values
 				ms <- model_fit()$solution
 				next_row[c("id", "rmse", "prop_form2")] <- c(track_inputs_rv$count_rows, ms["rmse"], ms["prop_form2"])
@@ -358,6 +360,9 @@ server <- function(input, output, session) {
 				} else if (input$estim_mode == "prop_preproc") {
 				  next_row[c("fit_type", estim_order)] <- c("proportion and pre-processing parameters", ms[estim_order])
 				}
+				  next_row["description_form1"] <- ifelse(!is.null(results$form1[[2]][1, "spec_description"]), results$form1[[2]][1, "spec_description"], "")
+				  next_row["description_form2"] <- ifelse(!is.null(results$form2[[2]][1, "spec_description"]), results$form2[[2]][1, "spec_description"], "")
+				  next_row["description_mix"] <- ifelse(!is.null(results$mix[[2]][1, "spec_description"]), results$mix[[2]][1, "spec_description"], "")
 				
 				track_inputs_rv$x <- rbind(track_inputs_rv$x, next_row)
 			}, label = "update the underlying estimate tracking file", ignoreInit = TRUE)
@@ -424,10 +429,23 @@ server <- function(input, output, session) {
   observeEvent(raw_data(), {
     req(raw_data())
     tmp <- raw_data()[[1]] %>% mutate(across(-ppm, ~norm_sum(.x)))
-    rv_plot$p <- plot_ly(x = ~ tmp$ppm, y = ~ tmp$form1, type = "scatter", mode = "lines", name = "form1 reference", line = list(width = 2, color = "black"), source = "p1") %>%
+    
+    p <- plot_ly(x = ~ tmp$ppm, y = ~ tmp$form1, type = "scatter", mode = "lines", name = "form1 reference", line = list(width = 2, color = "black"), source = "p1") %>%
       add_trace(x = ~ tmp$ppm, y = ~ tmp$form2, name = "form2 reference", mode = "lines", line = list(color = "green")) %>%
       add_trace(x = ~ tmp$ppm, y = ~ tmp$mix, name = "mixture spectrum", mode = "lines", line = list(color = "4682B4")) %>%
       layout(xaxis = list(zeroline = FALSE, autorange = "reversed", title = "ppm"), yaxis = list(title = "intensity")) 
+    
+    filePath_form1 <- paste("form1:", ifelse(is.null(results$form1[[2]][1, "spec_description"]), NA, results$form1[[2]][1, "spec_description"]))
+    filePath_form2 <- paste("form2:", ifelse(is.null(results$form2[[2]][1, "spec_description"]), NA, results$form2[[2]][1, "spec_description"]))
+    filePath_mix <- paste("mix:", ifelse(is.null(results$mix[[2]][1, "spec_description"]), NA, results$mix[[2]][1, "spec_description"]))
+    
+    textPos_x <- max(tmp$ppm) - max(nchar(c(filePath_form1, filePath_form2, filePath_mix))) *
+      diff(range(tmp$ppm))/320
+    textPos_y <- max(Re(tmp$mix))
+    p <- layout(p, annotations = list(text = paste(filePath_form1, filePath_form2,
+                                                   filePath_mix, sep = "\n"), x = textPos_x, y = textPos_y,
+                                      showarrow=FALSE, align = "left"))
+    rv_plot$p <- p
   })
   
 	observeEvent(input$fit_bn, {
@@ -447,6 +465,17 @@ server <- function(input, output, session) {
 	  for (i in seq_along(p$x$data)) {
 	    p$x$data[[i]]$visible <- legend_items[[p$x$data[[i]]$name]]
 	  }
+	  
+	  filePath_form1 <- paste("form1:", ifelse(is.null(results$form1[[2]][1, "spec_description"]), NA, results$form1[[2]][1, "spec_description"]))
+	  filePath_form2 <- paste("form2:", ifelse(is.null(results$form2[[2]][1, "spec_description"]), NA, results$form2[[2]][1, "spec_description"]))
+	  filePath_mix <- paste("mix:", ifelse(is.null(results$mix[[2]][1, "spec_description"]), NA, results$mix[[2]][1, "spec_description"]))
+
+	  textPos_x <- max(model_fit()$dat$ppm) - max(nchar(c(filePath_form1, filePath_form2, filePath_mix))) *
+	    diff(range(model_fit()$dat$ppm))/320
+	  textPos_y <- max(model_fit()$dat$mix)
+	  p <- layout(p, annotations = list(text = paste(filePath_form1, filePath_form2,
+	                                                   filePath_mix, sep = "\n"), x = textPos_x, y = textPos_y,
+	                                      showarrow=FALSE, align = "left"))
 	  rv_plot$p <- p
 	}, label = "call plot function")
 	

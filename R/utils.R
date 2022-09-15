@@ -22,15 +22,15 @@ read_spectrum <- function(file_input) {
     stopifnot(nrow(tmp) == 1)
     miss_params1 <- setdiff(c("OFFSET", "SW_p", "SF", "GRPDLY"), colnames(tmp))
     miss_params2 <- colnames(tmp)[is.na(tmp[1, ]) | is.null(tmp[1, ])]
-    miss_params <- union(miss_params1, miss_params2)
+    miss_params <- setdiff(union(miss_params1, miss_params2), "spec_description")
     
     if (length(miss_params) > 0) stop(paste("The following parameters were not provided in the params file:", 
                                             paste(miss_params, collapse = ', ')))
     
-    param <- matrix(as.numeric(tmp), nrow = 1)
-    colnames(param) <- names(tmp)
+    # param <- matrix(as.numeric(tmp), nrow = 1)
+    # colnames(param) <- names(tmp)
   
-    info_out <- param
+    info_out <- tmp
     
     # compute ppm values  
     nspec <- length(intensity)
