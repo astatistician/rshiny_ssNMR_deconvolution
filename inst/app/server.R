@@ -72,6 +72,28 @@ server <- function(input, output, session) {
 	  results$mix <- NULL; results$mix <- ssNMR::mix
 	  showNotification("Example data successfully loaded", type = "message")
 	}, ignoreInit = TRUE, label = "load example data")
+	
+	# download csv files with example data to illustrate the data structure
+	output$download_example_data_bn <- downloadHandler(
+	  filename = function() {
+	    "example_spectral_data.zip"
+	  },
+	  content = function(file) {
+	    # write.csv(data.frame(intensity = form1$data[[1]]), file = "C:/Users/lucp10542/Desktop/form1_intensity.csv", row.names = FALSE)
+	    # write.csv(form1$info, file = "C:/Users/lucp10542/Desktop/form1_params.csv", row.names = FALSE)
+	    write.csv(data.frame(intensity = form1$data[[1]]), file = "form1_intensity.csv", row.names = FALSE)
+	    write.csv(form1$info, file = "form1_params.csv", row.names = FALSE)
+	    
+	    write.csv(data.frame(intensity = form2$data[[1]]), file = "form2_intensity.csv", row.names = FALSE)
+	    write.csv(form2$info, file = "form2_params.csv", row.names = FALSE)
+	    
+	    write.csv(data.frame(intensity = mix$data[[1]]), file = "mix_intensity.csv", row.names = FALSE)
+	    write.csv(mix$info, file = "mix_params.csv", row.names = FALSE)
+	    
+	    zip::zip(file, files = c("form1_intensity.csv", "form1_params.csv", "form2_intensity.csv", "form2_params.csv", "mix_intensity.csv", "mix_params.csv"))
+	  }
+	)
+
 	# load parameter constraints for nloptr
 	param_constraints <- reactive({
 	      tmp_input <- reactiveValuesToList(input)

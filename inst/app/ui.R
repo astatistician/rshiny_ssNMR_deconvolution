@@ -10,8 +10,8 @@ ui <- fluidPage(
 												multiple = TRUE),
 										fileInput('files_mix', 'Choose mixture csv files (intensity and params)',
 												multiple = TRUE),
-										div(style="display:inline-block", actionButton("load_example_bn", "Load example data", width = 210))
-										#div(style="display:inline-block", downloadButton("download_example_data_bn", "Download example data", width = 210))
+										div(style="display:inline-block", actionButton("load_example_bn", "Load example data", width = 210)),
+										div(style="display:inline-block", downloadButton("download_example_data_bn", "Download example data", width = 210))
 
 						),
 						wellPanel(
