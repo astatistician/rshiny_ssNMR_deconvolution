@@ -501,18 +501,14 @@ server <- function(input, output, session) {
 				# Since only the last row will be loaded in, the user has to manually remove other records.
 				# The removal can be done in several ways: Delete, Backspace button on entire rows or selected cells.
 				# As a consequence, sometimes the removed rows may still be loaded in, but they will contain NA values (of different types).
-				# Heuristic: in such case remove rows with "empty" id, path_form1, path_form2, path_mix columns.
-				var_check <- c("id", "path_form1", "path_form2", "path_mix")
+				# Heuristic: in such case remove rows with "empty": id, fit_type, rmse, prop_form2 columns.
+				var_check <- c("id", "fit_type", "rmse", "prop_form2")
 				complete_cases_ind <- !apply(tmp, 1, function(x) all(is.na(x[var_check]) | x[var_check] == "" ))
 				tmp <- tmp[complete_cases_ind,]
 				dat <- tmp[nrow(tmp),]
-				if(localMode || input$inputSource == "Shared drive"){
-					if(!is.na(dat[["path_form1"]])) updateSelectInput(session, "path_form1", choices = dat[["path_form1"]])
-					if(!is.na(dat[["path_form2"]])) updateSelectInput(session, "path_form2", choices = dat[["path_form2"]])
-					if(!is.na(dat[["path_mix"]])) updateSelectInput(session, "path_mix", choices = dat[["path_mix"]])
-				} else {
-					showNotification("Note that file paths in results file cannot be re-read from local computer.", type = "warning") 
-				}
+				
+				showNotification("Note that the input spectral data cannot be loaded from the results file.", type = "warning") 
+				
 				param_selected <- c(preproc_param_names, adv_param_names[adv_param_names != "optim_algorithm"], "ppm_range1", "ppm_range2")
 				update_n_inputs(param_selected, dat[param_selected])
 				updateNumericInput(session, inputId = "pivot_point", value = dat[["pivot_point"]]) # Also take this value from result file (in case no file paths are available)
