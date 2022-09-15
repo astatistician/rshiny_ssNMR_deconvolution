@@ -64,7 +64,14 @@ server <- function(input, output, session) {
 					showNotification("Mixture spectrum files successfully loaded", type = "message")
 				}
 			}, ignoreInit = TRUE, label = "loading mix spectrum")
-
+	
+	# load example data
+	observeEvent(input$load_example_bn, {
+	  results$form1 <- NULL; results$form1 <- ssNMR::form1
+	  results$form2 <- NULL; results$form2 <- ssNMR::form2
+	  results$mix <- NULL; results$mix <- ssNMR::mix
+	  showNotification("Example data successfully loaded", type = "message")
+	}, ignoreInit = TRUE, label = "load example data")
 	# load parameter constraints for nloptr
 	param_constraints <- reactive({
 	      tmp_input <- reactiveValuesToList(input)
