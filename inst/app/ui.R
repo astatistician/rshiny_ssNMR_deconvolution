@@ -1,9 +1,3 @@
-if(localMode){
-	fileInputLabel <- 'Choose a xlsx file with paths to spectra'
-} else {
-	fileInputLabel <-  HTML('Choose a xlsx file with paths to spectra <br/> (path format: /opt/spectro$/NMR/...)')
-}
-
 ui <- fluidPage(
 		headerPanel("Automated deconvolution of solid-state NMR mixture spectra"),
 		fluidRow(
@@ -94,6 +88,3 @@ ui <- fluidPage(
 				)
 		)
 )
-
-
-
