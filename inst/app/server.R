@@ -446,6 +446,8 @@ server <- function(input, output, session) {
                                                    filePath_mix, sep = "\n"), x = textPos_x, y = textPos_y,
                                       showarrow=FALSE, align = "left"))
     rv_plot$p <- p
+    
+    showNotification("To avoid difference in chemical shift values between the uploaded spectra, mixture and form1 spectra are linearly interpolated onto the form2 x-axis values. The chemical shift of form2 reference spectrum is used in visualisations.", type = "message", duration = 15) 
   })
   
 	observeEvent(input$fit_bn, {
