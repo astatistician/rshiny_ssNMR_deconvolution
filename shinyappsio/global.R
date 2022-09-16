@@ -69,3 +69,9 @@ optim_algorithms_list <-
 				,"NLOPT_LN_SBPLX"
 				,"NLOPT_LN_BOBYQA"
 				,"NLOPT_GN_ISRES")
+
+param_button_mapping <- tribble(~param, ~label,
+                                "ppm_form1", "Chemical shift of form1",
+                                "ppm_mix", "Chemical shift of mixture",
+                                "ph0_mix", "PH0 of mixture",
+                                "ph1_mix", "PH1 of mixture")

@@ -304,6 +304,20 @@ server <- function(input, output, session) {
 				    , param_constraints = as.data.frame(param_constraints_tmp)
 				    , optim_algorithm = input$optim_algorithm
 				    , pivot_point = input$pivot_point)
+				  
+				  # check if estimated parameters hit their boundaries
+				  solution_boundaries <- left_join(param_constraints_tmp, enframe(mod$solution, value = "solution"), by = "name")
+				  ph_ind <- solution_boundaries$name %in% c("ph0_mix", "ph1_mix")
+				  solution_boundaries[ph_ind, "solution"] <- solution_boundaries[ph_ind, "solution"] * to_rad_const
+				  outside <- solution_boundaries %>% 
+				    rowwise() %>% 
+				    filter(name != "prop_form2") %>% 
+				    mutate(inside = near(solution, lb) | near(solution, ub)) %>% 
+				    filter(inside) %>% 
+				    pull(name)
+				  
+				  if (length(outside)>0) showNotification(paste("The following parameter estimates hit their boundaries:", paste0(deframe(param_button_mapping)[outside], collapse = ", "), ". Consider broadening these boundaries and reffiting the model.")
+				                                          , type = "warning", duration = 12)
 				  return(mod)
 				}
 			
