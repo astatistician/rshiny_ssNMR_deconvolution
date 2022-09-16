@@ -67,9 +67,9 @@ server <- function(input, output, session) {
 	
 	# load example data
 	observeEvent(input$load_example_bn, {
-	  results$form1 <- NULL; results$form1 <- ssNMR::form1
-	  results$form2 <- NULL; results$form2 <- ssNMR::form2
-	  results$mix <- NULL; results$mix <- ssNMR::mix
+	  results$form1 <- NULL; results$form1 <- ssNMR:::form1
+	  results$form2 <- NULL; results$form2 <- ssNMR:::form2
+	  results$mix <- NULL; results$mix <- ssNMR:::mix
 	  showNotification("Example data successfully loaded", type = "message")
 	}, ignoreInit = TRUE, label = "load example data")
 	
