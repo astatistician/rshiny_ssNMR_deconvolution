@@ -11,7 +11,6 @@ to_deg_const <- 180/pi
 to_rad_const <- pi/180
 
 # this vector determines the order of parameters that will be estimated via nloptr (parameters, constrains, starting values etc.)
-#estim_order = c("prop_form2", "ph0_mix", "ph1_mix", "ppm_form1", "ppm_mix")
 estim_order = c("prop_form2", "ph0_mix", "ph1_mix", "ppm_mix", "ppm_form1")
 
 param_defaults <- list(
@@ -71,7 +70,7 @@ optim_algorithms_list <-
 				,"NLOPT_GN_ISRES")
 
 param_button_mapping <- tribble(~param, ~label,
-                                "ppm_form1", "Chemical shift of form1",
-                                "ppm_mix", "Chemical shift of mixture",
+                                "ppm_form1", "Horizontal shift of form1",
+                                "ppm_mix", "Horizontal shift of mixture",
                                 "ph0_mix", "PH0 of mixture",
                                 "ph1_mix", "PH1 of mixture")
