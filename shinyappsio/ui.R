@@ -32,13 +32,17 @@ ui <- fluidPage(
         div(style = "display:inline-block", numericInput(inputId = "ppm_range2", label = "Select upper ppm limit", value = param_defaults$ppm_range2, step = 1, width = 140) %>% 
               bsplus::shinyInput_label_embed(bsplus::shiny_iconlink() %>%
                                                bsplus::bs_embed_tooltip(title = "By default, ppm boundaries are set to invisible NA values, meaning no zoom into particular ppm region.", placement = "left"))),
-        numericInput("ppm_form1", label = "Horizontal shift (ppm) of form1 (>0 right, <0 left)", value = param_defaults$ppm_form1, min = -50, max = 50, step = 0.01),
-        numericInput("ppm_mix", label = "Horizontal shift (ppm) of mixture (>0 right, <0 left)", value = param_defaults$ppm_mix, min = -50, max = 50, step = 0.01),
-        numericInput("ph0_mix", label = "PH0 (degrees) of mixture", value = param_defaults$ph0_mix, min = -180, max = 180, step = 0.01),
+        numericInput("ppm_form1", label = "Horizontal shift of form1 (ppm; >0 right, <0 left)", value = param_defaults$ppm_form1, min = -50, max = 50, step = 0.01),
+        numericInput("ppm_mix", label = "Horizontal shift of mixture (ppm; >0 right, <0 left)", value = param_defaults$ppm_mix, min = -50, max = 50, step = 0.01),
+        numericInput("ph0_mix", label = "PH0 of mixture (degrees)", value = param_defaults$ph0_mix, min = -180, max = 180, step = 0.01) %>% 
+          bsplus::shinyInput_label_embed(bsplus::shiny_iconlink() %>%
+                                           bsplus::bs_embed_tooltip(title = "Zero-order phase correction", placement = "left")),
         numericInput("pivot_point", label = "Pivot point (ppm)", value = 0, min = -100000, max = 100000, step = 0.1) %>% 
           bsplus::shinyInput_label_embed(bsplus::shiny_iconlink() %>%
                                            bsplus::bs_embed_tooltip(title = "Enter a value from keyboard or left-click on a certain point of a line on the graph.", placement = "left")),
-        numericInput("ph1_mix", label = "PH1 (degrees) of mixture", value = param_defaults$ph1_mix, min = -180, max = 180, step = 0.01),
+        numericInput("ph1_mix", label = "PH1 of mixture (degrees)", value = param_defaults$ph1_mix, min = -180, max = 180, step = 0.01) %>% 
+        bsplus::shinyInput_label_embed(bsplus::shiny_iconlink() %>%
+                                         bsplus::bs_embed_tooltip(title = "First-order phase correction", placement = "left")),
         numericInput("prop_form2", label = "form2 proportion value [0-1]", value = param_defaults$prop_form2, min = 0, max = 100, step = 0.001) %>% 
           bsplus::shinyInput_label_embed(bsplus::shiny_iconlink() %>%
                                            bsplus::bs_embed_tooltip(title = "form1 proportion is then calculated as 1 - form2 proportion.", placement = "left")),
@@ -99,7 +103,7 @@ ui <- fluidPage(
                                           \n** Starting values for optimisation parameters in 2) and 3) are obtained from inputs in 'Spectral processing parameters'.", placement = "bottom"))),
         conditionalPanel(
           condition = "input.estim_mode=='prop_preproc'",
-          checkboxInput("do_PH0_PepsNMR", label = "Initial PH0 from PepsNMR (recommended for unprocessed mixture spec)", value = TRUE)
+          checkboxInput("do_PH0_PepsNMR", label = "Initial PH0 from PepsNMR (recommended for mixture spectra with large phase errors)", value = TRUE)
         ),
         actionButton("fit_bn", "Fit the model!", width = 210)
       ),
