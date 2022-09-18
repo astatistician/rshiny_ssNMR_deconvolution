@@ -87,7 +87,7 @@ ui <- fluidPage(
       br(),
       wellPanel(
         div(style = "display:inline-block", radioButtons("estim_mode", "Choose the optimisation mode",
-          selected = "only_prop",
+          selected = "prop_preproc",
           c(
             "no optimisation, apply the fixed processing values" = "explicit",
             "optimise only proportion" = "only_prop",
