@@ -147,6 +147,7 @@ server <- function(input, output, session) {
 				if (!any(is.na(c(input$ppm_range1, input$ppm_range2)))) {
 					if (input$ppm_range1 >= input$ppm_range2) {
 						showNotification("The lower ppm boundary must be smaller than the upper boundary. The model will be fitted on the entire initial ppm range.", type = "warning") 
+					  return(raw_data()) 
 					} else {
 					  raw_data_tmp <- raw_data()
 					  raw_data_tmp[[1]] <- subset(raw_data_tmp[[1]], raw_data_tmp[[1]]$ppm >= input$ppm_range1 & raw_data_tmp[[1]]$ppm <= input$ppm_range2)
