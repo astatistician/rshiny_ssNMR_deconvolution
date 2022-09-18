@@ -32,6 +32,13 @@ server <- function(input, output, session) {
 	
 #####
 	
+	# check if form2 proportion input value is between 0 and 1
+	prop_0_1 <- reactive({
+	  inside <- between(input$prop_form2, 0 ,1)
+	  shinyFeedback::feedbackDanger("prop_form2", !inside, "Please select a number between 0 and 1")
+	})
+	output$prop_form2_check <- renderText(prop_0_1())
+	
 	observeEvent(input$files_form1, {
 			form1 <- tryCatch(read_spectrum(input$files_form1), error = function(err) return(err))
 				

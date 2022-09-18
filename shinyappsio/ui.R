@@ -1,5 +1,6 @@
 ui <- fluidPage(
   headerPanel("Automated deconvolution of solid-state NMR mixture spectra"),
+    shinyFeedback::useShinyFeedback(),
   fluidRow(
     column(
       width = 4,
@@ -46,6 +47,7 @@ ui <- fluidPage(
         numericInput("prop_form2", label = "form2 proportion value [0-1]", value = param_defaults$prop_form2, min = 0, max = 100, step = 0.001) %>% 
           bsplus::shinyInput_label_embed(bsplus::shiny_iconlink() %>%
                                            bsplus::bs_embed_tooltip(title = "form1 proportion is then calculated as 1 - form2 proportion.", placement = "left")),
+        textOutput("prop_form2_check"),
         
         shinyBS::bsCollapse(
           id = "show_adv_opt",
