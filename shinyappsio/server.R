@@ -565,9 +565,9 @@ server <- function(input, output, session) {
 	
 	# download a csv file with individual spectral data
 	output$download_spectral_data_bn <- downloadHandler(
-	  filename = function(){paste0("spectral_data_", strftime(Sys.time(), "%Y%m%d"), ".rds")},
+	  filename = function(){paste0("spectral_data_", strftime(Sys.time(), "%Y%m%d"), ".csv")},
 	  content = function(file){
-	    saveRDS(object = model_fit(), file=file)
+	    write.csv(model_fit()$dat, file=file, row.names = FALSE)
 	  })
 	
 	# load the spectra and estimated processing parameters from a file with previous results 
