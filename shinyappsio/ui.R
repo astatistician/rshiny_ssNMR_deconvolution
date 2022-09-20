@@ -123,6 +123,7 @@ ui <- fluidPage(
     ),
     column(
       width = 8,
+      HTML("version 1.0.0 (2022-09-19) - Valkenborg Lab (contact: piotr.prostko@uhasselt.be)"),
       plotlyOutput("fit_plot_out", height = 600),
       verbatimTextOutput("fit_stats_out", placeholder = FALSE),
       textAreaInput(inputId = "user_comments", label = "Enter comments about the fit", value = ""),
