@@ -279,7 +279,7 @@ server <- function(input, output, session) {
 				  if (input$do_PH0_PepsNMR) {
 				    tmp <- matrix(mix, nrow = 1)
 				    colnames(tmp) <- ppm
-				    ph0_angle <- ZeroOrderPhaseCorrection(tmp, type.zopc = "max", returnAngle = TRUE)$Angle * to_deg_const
+				    ph0_angle <- ZeroOrderPhaseCorrection(tmp, type.zopc = "rms", returnAngle = TRUE)$Angle * to_deg_const
 				  }
 				  
 				  model_input <- data.frame(ppm = ppm, form1 = form1, form2 = form2, mix = mix)
