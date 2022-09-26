@@ -88,13 +88,13 @@ server <- function(input, output, session) {
 	  },
 	  content = function(file) {
 	    write.csv(data.frame(intensity = form1$data[[1]]), file = "form1_intensity.csv", row.names = FALSE)
-	    write.csv(form1$info, file = "form1_params.csv", row.names = FALSE)
+	    write.csv(form1$info[,-5], file = "form1_params.csv", row.names = FALSE)
 	    
 	    write.csv(data.frame(intensity = form2$data[[1]]), file = "form2_intensity.csv", row.names = FALSE)
-	    write.csv(form2$info, file = "form2_params.csv", row.names = FALSE)
+	    write.csv(form2$info[,-5], file = "form2_params.csv", row.names = FALSE)
 	    
 	    write.csv(data.frame(intensity = mix$data[[1]]), file = "mix_intensity.csv", row.names = FALSE)
-	    write.csv(mix$info, file = "mix_params.csv", row.names = FALSE)
+	    write.csv(mix$info[,-5], file = "mix_params.csv", row.names = FALSE)
 	    
 	    zip::zip(file, files = c("form1_intensity.csv", "form1_params.csv", "form2_intensity.csv", "form2_params.csv", "mix_intensity.csv", "mix_params.csv"))
 	  }
