@@ -1,8 +1,6 @@
-# mapping: amo - form1, cr - form2
-
 server <- function(input, output, session) {
 	
-	options(shiny.reactlog = TRUE)
+	#options(shiny.reactlog = TRUE)
   observe_helpers(withMathJax = TRUE)
 	
 ##### Local variable & function definitions:
@@ -30,7 +28,6 @@ server <- function(input, output, session) {
 					updateNumericInput(session, inputId = x, value = as.numeric(dat[match_ind]))
 				})
 	}
-	
 #####
 	
 	# check if form2 proportion input value is between 0 and 1
