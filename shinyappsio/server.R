@@ -146,7 +146,6 @@ server <- function(input, output, session) {
 				info[1, "FTSIZE"] <- nrow(df)
 				spec_size <- info[1, "FTSIZE"] + input$add_zeroes
 				
-				
 				return(list(df, info, spec_size, initial_ppm_range, GRPDLY = GRPDLY_df))
 			}, label = "read in spectra")
 	
@@ -409,9 +408,9 @@ server <- function(input, output, session) {
 				} else if (input$estim_mode == "prop_preproc") {
 				  next_row[c("fit_type", estim_order)] <- c("proportion and pre-processing parameters", ms[estim_order])
 				}
-				  next_row["description_form1"] <- ifelse(!is.null(results$form1[[2]][1, "spec_description"]), results$form1[[2]][1, "spec_description"], "")
-				  next_row["description_form2"] <- ifelse(!is.null(results$form2[[2]][1, "spec_description"]), results$form2[[2]][1, "spec_description"], "")
-				  next_row["description_mix"] <- ifelse(!is.null(results$mix[[2]][1, "spec_description"]), results$mix[[2]][1, "spec_description"], "")
+				  next_row["description_form1"] <- input$description_form1
+				  next_row["description_form2"] <- input$description_form2
+				  next_row["description_mix"] <- input$description_mix
 				
 				track_inputs_rv$x <- rbind(track_inputs_rv$x, next_row)
 			}, label = "update the underlying estimate tracking file", ignoreInit = TRUE)
@@ -475,7 +474,7 @@ server <- function(input, output, session) {
 	
   rv_plot <- reactiveValues(p = NULL)
   
-  observeEvent(raw_data(), {
+  observeEvent(c(raw_data(), input$description_form1, input$description_form2, input$description_mix), {
     req(raw_data())
     tmp <- raw_data()[[1]] %>% mutate(across(-ppm, ~norm_sum(.x)))
     
@@ -484,9 +483,9 @@ server <- function(input, output, session) {
       add_trace(x = ~ tmp$ppm, y = ~ tmp$mix, name = "mixture spectrum", mode = "lines", line = list(color = "4682B4")) %>%
       layout(xaxis = list(zeroline = FALSE, autorange = "reversed", title = "ppm"), yaxis = list(title = "intensity")) 
     
-    filePath_form1 <- paste("form1:", ifelse(is.null(results$form1[[2]][1, "spec_description"]), NA, results$form1[[2]][1, "spec_description"]))
-    filePath_form2 <- paste("form2:", ifelse(is.null(results$form2[[2]][1, "spec_description"]), NA, results$form2[[2]][1, "spec_description"]))
-    filePath_mix <- paste("mix:", ifelse(is.null(results$mix[[2]][1, "spec_description"]), NA, results$mix[[2]][1, "spec_description"]))
+    filePath_form1 <- paste("form1:", input$description_form1)
+    filePath_form2 <- paste("form2:", input$description_form2)
+    filePath_mix <- paste("mix:",  input$description_mix)
     
     textPos_x <- max(tmp$ppm) - max(nchar(c(filePath_form1, filePath_form2, filePath_mix))) *
       diff(range(tmp$ppm))/320
@@ -495,7 +494,9 @@ server <- function(input, output, session) {
                                                    filePath_mix, sep = "\n"), x = textPos_x, y = textPos_y,
                                       showarrow=FALSE, align = "left"))
     rv_plot$p <- p
-    
+  })
+  
+  observeEvent(raw_data(), {
     showNotification("To avoid discrepancies in chemical shift values between the uploaded spectra, mixture and form1 spectra are linearly interpolated onto the form2 x-axis values. The chemical shift of form2 reference spectrum is used in visualisations.", type = "message", duration = 15) 
   })
   
@@ -517,9 +518,9 @@ server <- function(input, output, session) {
 	    p$x$data[[i]]$visible <- legend_items[[p$x$data[[i]]$name]]
 	  }
 	  
-	  filePath_form1 <- paste("form1:", ifelse(is.null(results$form1[[2]][1, "spec_description"]), NA, results$form1[[2]][1, "spec_description"]))
-	  filePath_form2 <- paste("form2:", ifelse(is.null(results$form2[[2]][1, "spec_description"]), NA, results$form2[[2]][1, "spec_description"]))
-	  filePath_mix <- paste("mix:", ifelse(is.null(results$mix[[2]][1, "spec_description"]), NA, results$mix[[2]][1, "spec_description"]))
+	  filePath_form1 <- paste("form1:", input$description_form1)
+	  filePath_form2 <- paste("form2:", input$description_form2)
+	  filePath_mix <- paste("mix:",  input$description_mix)
 
 	  textPos_x <- max(model_fit()$dat$ppm) - max(nchar(c(filePath_form1, filePath_form2, filePath_mix))) *
 	    diff(range(model_fit()$dat$ppm))/320

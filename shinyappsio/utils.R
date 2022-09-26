@@ -1,49 +1,145 @@
 #' @export 
 read_spectrum <- function(file_input) {
     
-    int_ind <- stri_detect(file_input$name, fixed = "intensity")
+    # check file extension  
+    ok_formats <- c(".zip", ".dx", ".csv")
+    ind_format <- ok_formats %>% map_lgl(~all(stri_detect(file_input$name, fixed = .x)))
+    uploaded_format <- ok_formats[ind_format]
     
-    #intensity file
-    path_intensity <- file_input[int_ind, "datapath"]
-    intensity_init <- read.csv(path_intensity, header = TRUE)
-    intensity <- intensity_init[,1]
-    
-    # checks on the intensity file
-    stopifnot(length(intensity)>1, #"At least two data points are required.")
-      all(is.complex(intensity)), #"Intensity values should be complex numbers")
-      !is.null(names(intensity_init)) #"Provide column name ('intensity') in the first row")
-    )
-    
-    #param file
-    path_param <- file_input[!int_ind, "datapath"]
-    tmp <- read.csv(path_param, header = TRUE)
-    
-    # checks on the param file
-    stopifnot(nrow(tmp) == 1)
-    miss_params1 <- setdiff(c("OFFSET", "SW_p", "SF", "GRPDLY"), colnames(tmp))
-    miss_params2 <- colnames(tmp)[is.na(tmp[1, ]) | is.null(tmp[1, ])]
-    miss_params <- setdiff(union(miss_params1, miss_params2), "spec_description")
-    
-    if (length(miss_params) > 0) stop(paste("The following parameters were not provided in the params file:", 
-                                            paste(miss_params, collapse = ', ')))
-    
-    # param <- matrix(as.numeric(tmp), nrow = 1)
-    # colnames(param) <- names(tmp)
-  
-    info_out <- tmp
-    
-    # compute ppm values  
-    nspec <- length(intensity)
-    info_out <- cbind(info_out, FTSIZE = nspec)
-    
-    swp <- info_out[1, "SW_p"] / info_out[1, "SF"]
-    dppm <- swp / nspec
-    ppm <- seq(info_out[1, "OFFSET"], (info_out[1, "OFFSET"] - swp), by = -dppm)
-    # the ppm of last point may not coincide with the sequence right limit
-    ppm <- ppm[1 : nspec]
-    
-    names(intensity) <- ppm
-    return(list(data = list(intensity), info = info_out))
+    if (uploaded_format %in% c(".zip", ".dx")) { 
+        
+      stopifnot(nrow(file_input)==1)
+      
+      # if zip then search through files
+      if (uploaded_format == ".zip") {
+        
+        tmp_dir_path <- tempdir()
+        tmp_dir_path <- paste0(tmp_dir_path, '\\tmp', 2^sample(20, 1))
+        dir.create(tmp_dir_path)
+        zip::unzip(file_input$datapath, exdir = tmp_dir_path)
+        unzipped_files <- list.files(tmp_dir_path, recursive = TRUE)
+        
+        inds_for_values <- set_names(c("1r", "1i", "acqus", "procs")) %>% 
+          map_dbl(~which(stri_detect(unzipped_files, regex = paste0(.x, "$"))))
+        
+        needed_files <- paste0(tmp_dir_path, "\\", unzipped_files[inds_for_values])
+        names(needed_files) <- names(inds_for_values)
+        
+        n_files <- 1
+        data_out <- vector("list", n_files)
+        
+        params <- c("OFFSET", "SW_p", "SF", "GRPDLY", "FTSIZE")
+        info_out <- matrix(nrow = n_files, ncol = length(params))
+        colnames(info_out) <- c(params)
+        
+          x1 <- readLines(needed_files["procs"])
+          x11 <- readLines(needed_files["acqus"])
+          x1 <- c(x1, x11)
+          x2 <- strsplit(x1, "=")
+          x3 <- lapply(x2, function(x) {
+            tmp <- x %>%
+              stri_replace_all("", regex = "#*\\$*") %>%
+              stri_trim_both()
+          })
+          
+          params_all <- unlist(lapply(x3, function(x) x[1]))
+          values_all <- unlist(lapply(x3, function(x) x[2]))
+          params_ind <- match(params, params_all)
+          info_out[1, ] <- as.numeric(values_all[params_ind])
+          
+          nspec <- info_out[1, "FTSIZE"]
+          swp <- info_out[1, "SW_p"] / info_out[1, "SF"]
+          dppm <- swp / nspec
+          ppm <- seq(info_out[1, "OFFSET"], (info_out[1, "OFFSET"] - swp), by = -dppm)
+          # the ppm of last point may not coincide with the sequence right limit
+          ppm <- ppm[1 : nspec]
+          
+          spec_r <- readBin(needed_files["1r"],
+                            what = "int", n = nspec,
+                            size = 4L, endian = "little"
+          )
+          spec_i <- readBin(needed_files["1i"],
+                            what = "int", n = nspec,
+                            size = 4L, endian = "little"
+          )
+          spec <- complex(real = spec_r, imaginary = spec_i)
+          names(spec) <- ppm
+          data_out[[1]] <- spec
+        
+        unlink(tmp_dir_path )
+        return(list(data = data_out, info = info_out))
+        
+      } else {
+      
+        dx_dat <- readJDX::readJDX(file_input$datapath)
+        intensity <- complex(real = dx_dat$real$y, imaginary = dx_dat$imaginary$y)
+        if (any(!near(dx_dat$real$x, dx_dat$imaginary$x))) stop("ppm values of the real and imaginary part differ.")
+        names(intensity) <- dx_dat$real$x
+        
+        # the ppm scale 
+        inds_for_values <- set_names(c("OFFSET", "SW_p", "SF=", "GRPDLY")) %>% 
+          map(~which(stri_detect(dx_dat$metadata, fixed = .x)))
+        
+        dx_dat$metadata[unlist(inds_for_values)]
+        
+        x2 <- strsplit(dx_dat$metadata[unlist(inds_for_values)], "=")
+        x3 <- lapply(x2, function(x) {
+          tmp <- x %>%
+            stri_replace_all("", regex = "#*\\$*") %>%
+            stri_trim_both()
+      })
+        params <- unlist(lapply(x3, function(x) x[1]))
+        values <- unlist(lapply(x3, function(x) x[2]))
+        
+        info_out <- matrix(nrow = 1, ncol = length(params))
+        colnames(info_out) <- c(params)
+        info_out[1, ] <- as.numeric(values)
+        info_out <- as.data.frame(cbind(info_out, "FTSIZE" = length(intensity)))
+        return(list(data = list(intensity), info = info_out))
+        
+    }
+      } else if (uploaded_format == ".csv") {
+      
+        int_ind <- stri_detect(file_input$name, fixed = "intensity")
+        
+        #intensity file
+        path_intensity <- file_input[int_ind, "datapath"]
+        intensity_init <- read.csv(path_intensity, header = TRUE)
+        intensity <- intensity_init[,1]
+        
+        # checks on the intensity file
+        stopifnot(length(intensity)>1, #"At least two data points are required.")
+          all(is.complex(intensity)), #"Intensity values should be complex numbers")
+          !is.null(names(intensity_init)) #"Provide column name ('intensity') in the first row")
+        )
+        
+        #param file
+        path_param <- file_input[!int_ind, "datapath"]
+        tmp <- read.csv(path_param, header = TRUE)
+        
+        # checks on the param file
+        stopifnot(nrow(tmp) == 1)
+        miss_params1 <- setdiff(c("OFFSET", "SW_p", "SF", "GRPDLY"), colnames(tmp))
+        miss_params2 <- colnames(tmp)[is.na(tmp[1, ]) | is.null(tmp[1, ])]
+        miss_params <- union(miss_params1, miss_params2)
+        
+        if (length(miss_params) > 0) stop(paste("The following parameters were not provided in the params file:", 
+                                                paste(miss_params, collapse = ', ')))
+        info_out <- tmp
+        
+        # compute ppm values  
+        nspec <- length(intensity)
+        info_out <- cbind(info_out, FTSIZE = nspec)
+        
+        swp <- info_out[1, "SW_p"] / info_out[1, "SF"]
+        dppm <- swp / nspec
+        ppm <- seq(info_out[1, "OFFSET"], (info_out[1, "OFFSET"] - swp), by = -dppm)
+        # the ppm of last point may not coincide with the sequence right limit
+        ppm <- ppm[1 : nspec]
+        
+        names(intensity) <- ppm
+        return(list(data = list(intensity), info = info_out))
+      }
 }
 
 #' @export 

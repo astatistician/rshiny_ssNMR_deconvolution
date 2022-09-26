@@ -8,21 +8,29 @@ ui <- fluidPage(
         strong(HTML("<p style='color:#2596be; font-size:15px'> Test the app with example data </p>")),
         div(style = "display:inline-block", actionButton("load_example_bn", "Load example")),
         div(style = "display:inline-block", h4(" ")),
-        div(style = "display:inline-block", downloadButton("download_example_data_bn", "Download input file template"))
+        div(style = "display:inline-block", downloadButton("download_example_data_bn", "Download input file template (CSV)"))
       ),
       wellPanel(
         strong(HTML("<p style='color:#2596be; font-size:15px'> Load your own spectra </p>")),
-        fileInput("files_form1", "Choose form1 csv files (intensity and params)",
-          multiple = TRUE
-        ),
-        fileInput("files_form2", "Choose form2 csv files (intensity and params)",
-          multiple = TRUE
-        ),
-        fileInput("files_mix", "Choose mixture csv files (intensity and params)",
-          multiple = TRUE
-        ) %>% 
-          bsplus::shinyInput_label_embed(bsplus::shiny_iconlink() %>%
-                                           bsplus::bs_embed_tooltip(title = "NMR acquisition and processing of form1, form2 and mixture signals should be ideally conducted in the same way. The number of spectral data points must be identical.", placement = "left"))
+        "Bruker data folder saved as archive (.zip) or JCAMP-DX (.dx), or manually prepared CSV files",
+        br(),
+        fileInput("files_form1", "Choose form1 files",
+            multiple = TRUE,
+            accept = c(".zip", ".dx", ".csv")
+          ),
+        fileInput("files_form2", "Choose form2 files",
+            multiple = TRUE,
+            accept = c(".zip", ".dx", ".csv")
+          ),
+          fileInput("files_mix", "Choose mixture files",
+            multiple = TRUE,
+            accept = c(".zip", ".dx", ".csv")
+          ) %>% 
+            bsplus::shinyInput_label_embed(bsplus::shiny_iconlink() %>%
+                                             bsplus::bs_embed_tooltip(title = "NMR acquisition and processing of form1, form2 and mixture signals should be ideally conducted in the same way. The number of spectral data points must be identical.", placement = "left")),
+        div(style = "display:inline-block", textInput("description_form1", label = "Form1 label", value = "", width = 100)),
+        div(style = "display:inline-block", textInput("description_form2", label = "Form2 label", value = "", width = 100)),
+        div(style = "display:inline-block", textInput("description_mix", label = "Mix label", value = "", width = 100))
       ),
       wellPanel(
         strong(HTML("<p style='color:#2596be; font-size:15px'> Spectral processing parameters</p>")),
