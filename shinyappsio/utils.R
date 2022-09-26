@@ -2,74 +2,13 @@
 read_spectrum <- function(file_input) {
     
     # check file extension  
-    ok_formats <- c(".zip", ".dx", ".csv")
+    ok_formats <- c(".dx", ".csv")
     ind_format <- ok_formats %>% map_lgl(~all(stri_detect(file_input$name, fixed = .x)))
     uploaded_format <- ok_formats[ind_format]
     
-    if (uploaded_format %in% c(".zip", ".dx")) { 
+    if (uploaded_format == ".dx") { 
         
       stopifnot(nrow(file_input)==1)
-      
-      # if zip then search through files
-      if (uploaded_format == ".zip") {
-        
-        tmp_dir_path <- tempdir()
-        tmp_dir_path <- paste0(tmp_dir_path, '\\tmp', 2^sample(20, 1))
-        dir.create(tmp_dir_path)
-        zip::unzip(file_input$datapath, exdir = tmp_dir_path)
-        unzipped_files <- list.files(tmp_dir_path, recursive = TRUE)
-        
-        inds_for_values <- set_names(c("1r", "1i", "acqus", "procs")) %>% 
-          map_dbl(~which(stri_detect(unzipped_files, regex = paste0(.x, "$"))))
-        
-        needed_files <- paste0(tmp_dir_path, "\\", unzipped_files[inds_for_values])
-        names(needed_files) <- names(inds_for_values)
-        
-        n_files <- 1
-        data_out <- vector("list", n_files)
-        
-        params <- c("OFFSET", "SW_p", "SF", "GRPDLY", "FTSIZE")
-        info_out <- matrix(nrow = n_files, ncol = length(params))
-        colnames(info_out) <- c(params)
-        
-          x1 <- readLines(needed_files["procs"])
-          x11 <- readLines(needed_files["acqus"])
-          x1 <- c(x1, x11)
-          x2 <- strsplit(x1, "=")
-          x3 <- lapply(x2, function(x) {
-            tmp <- x %>%
-              stri_replace_all("", regex = "#*\\$*") %>%
-              stri_trim_both()
-          })
-          
-          params_all <- unlist(lapply(x3, function(x) x[1]))
-          values_all <- unlist(lapply(x3, function(x) x[2]))
-          params_ind <- match(params, params_all)
-          info_out[1, ] <- as.numeric(values_all[params_ind])
-          
-          nspec <- info_out[1, "FTSIZE"]
-          swp <- info_out[1, "SW_p"] / info_out[1, "SF"]
-          dppm <- swp / nspec
-          ppm <- seq(info_out[1, "OFFSET"], (info_out[1, "OFFSET"] - swp), by = -dppm)
-          # the ppm of last point may not coincide with the sequence right limit
-          ppm <- ppm[1 : nspec]
-          
-          spec_r <- readBin(needed_files["1r"],
-                            what = "int", n = nspec,
-                            size = 4L, endian = "little"
-          )
-          spec_i <- readBin(needed_files["1i"],
-                            what = "int", n = nspec,
-                            size = 4L, endian = "little"
-          )
-          spec <- complex(real = spec_r, imaginary = spec_i)
-          names(spec) <- ppm
-          data_out[[1]] <- spec
-        
-        unlink(tmp_dir_path )
-        return(list(data = data_out, info = info_out))
-        
-      } else {
       
         dx_dat <- readJDX::readJDX(file_input$datapath)
         intensity <- complex(real = dx_dat$real$y, imaginary = dx_dat$imaginary$y)
