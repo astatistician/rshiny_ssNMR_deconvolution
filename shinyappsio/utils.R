@@ -34,9 +34,17 @@ read_spectrum <- function(file_input) {
         colnames(info_out) <- c(params)
         info_out[1, ] <- as.numeric(values)
         info_out <- as.data.frame(cbind(info_out, "FTSIZE" = length(intensity)))
+        
+        nspec <- info_out[1, "FTSIZE"]
+        swp <- info_out[1, "SW_p"] / info_out[1, "SF"]
+        dppm <- swp / nspec
+        ppm <- seq(info_out[1, "OFFSET"], (info_out[1, "OFFSET"] - swp), by = -dppm)
+        # the ppm of last point may not coincide with the sequence right limit
+        ppm <- ppm[1 : nspec]
+        names(intensity) <- ppm
+        
         return(list(data = list(intensity), info = info_out))
         
-    }
       } else if (uploaded_format == ".csv") {
       
         int_ind <- stri_detect(file_input$name, fixed = "intensity")
