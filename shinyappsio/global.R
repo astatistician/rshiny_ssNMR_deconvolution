@@ -3,6 +3,7 @@ library(plotly)
 library(tidyverse)
 library(PepsNMR)
 library(stringi)
+library(shinyhelper)
 
 load("sysdata.rda")
 source("utils.R")

@@ -3,6 +3,7 @@
 server <- function(input, output, session) {
 	
 	options(shiny.reactlog = TRUE)
+  observe_helpers(withMathJax = TRUE)
 	
 ##### Local variable & function definitions:
 	legend_states <- list(TRUE, "legendonly")
