@@ -566,7 +566,10 @@ server <- function(input, output, session) {
 	output$download_spectral_data_bn <- downloadHandler(
 	  filename = function(){paste0("spectral_data_", strftime(Sys.time(), "%Y%m%d"), ".csv")},
 	  content = function(file){
-	    write.csv(model_fit()$dat, file=file, row.names = FALSE)
+  	  dat_tmp <- model_fit()$dat
+  	  dat_tmp$form1 <- dat_tmp$form1 * (1-model_fit()$solution["prop_form2"])
+  	  dat_tmp$form2 <- dat_tmp$form2 * model_fit()$solution["prop_form2"]
+	    write.csv(dat_tmp, file=file, row.names = FALSE)
 	  })
 	
 	# load the spectra and estimated processing parameters from a file with previous results 
