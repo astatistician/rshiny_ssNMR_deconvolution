@@ -218,6 +218,10 @@ server <- function(input, output, session) {
 	  fit_bn_rv$counter <- fit_bn_rv$counter+1
 	}, label = "update the counter for the fitting button")
 	
+	observeEvent(c(input$load_example_bn, input$files_form1, input$files_form2, input$files_mix),{
+	  fit_bn_rv$counter <- 0
+	})
+	
 	# model fitting with nloptr
 	model_fit <- eventReactive(input$fit_bn, {
 				validate(need(results$form1, "form1 spectrum path required"), 
@@ -596,4 +600,19 @@ server <- function(input, output, session) {
 				updateNumericInput(session, inputId = "pivot_point", value = dat[["pivot_point"]]) # Also take this value from result file (in case no file paths are available)
 				updateTextInput(session, inputId = "optim_algorithm", value = as.character(dat["optim_algorithm"]))
 			}, label = "load in estimated results")
+	
+	output$user_comments <- renderUI({
+	  if (fit_bn_rv$counter>0)
+	    textAreaInput(inputId = "user_comments", label = "Enter comments about the fit", value = "")
+	})
+
+	output$save_user_comments_bn <- renderUI({
+	  if (fit_bn_rv$counter>0)
+	    actionButton(inputId = "save_user_comments_bn", label = "Save the comments")
+	})
+
+	output$approve_bn <- renderUI({
+	  if (fit_bn_rv$counter>0)
+	    actionButton("approve_bn", "Approve the fit")
+	})
 }

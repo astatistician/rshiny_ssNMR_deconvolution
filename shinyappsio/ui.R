@@ -159,9 +159,27 @@ ui <- fluidPage(
       HTML("version 1.0.0 (2022-09-19) - Valkenborg Lab (contact: piotr.prostko@uhasselt.be)"),
       plotlyOutput("fit_plot_out", height = 600),
       verbatimTextOutput("fit_stats_out", placeholder = FALSE),
-      textAreaInput(inputId = "user_comments", label = "Enter comments about the fit", value = ""),
-      actionButton(inputId = "save_user_comments_bn", label = "Save the comments"),
-      actionButton("approve_bn", "Approve the fit")
+      # conditionalPanel(
+      #   condition = "input.fit_bn_rv>0",
+      #   br(),
+      #   textAreaInput(inputId = "user_comments", label = "Enter comments about the fit", value = ""),
+      #   br()
+      # ),
+      # conditionalPanel(
+      #   condition = "input.fit_bn_rv>0",
+      #   br(),
+      #   actionButton(inputId = "save_user_comments_bn", label = "Save the comments"),
+      #   br()
+      # ),
+      # conditionalPanel(
+      #   condition = "input.fit_bn_rv>0",
+      #   br(),
+      #   actionButton("approve_bn", "Approve the fit"),
+      #   br()
+      # )
+      uiOutput("user_comments"),
+      uiOutput("save_user_comments_bn"),
+      uiOutput("approve_bn")
     )
   )
 )
