@@ -10,7 +10,7 @@ server <- function(input, output, session) {
 	param_defaults_names <- names(param_defaults)
 	preproc_param_names <- param_defaults_names[param_defaults_names %in% c("prop_form2", "ppm_form1", "ppm_mix", "ph0_mix", "ph1_mix")]
 	adv_param_names <- param_defaults_names[param_defaults_names %in% 
-	                                          c("add_zeroes", "lb_global", "lb_form1", "lb_form2", "lb_mix", "optim_algorithm", "ppm_form1_lower", "ppm_form1_upper", "ppm_mix_lower" ,"ppm_mix_upper", "ph0_mix_lower", "ph0_mix_upper", "ph1_mix_lower", "ph1_mix_upper")]
+	                                          c("add_zeroes", "lb_global", "lb_form1", "lb_form2", "lb_mix", "optim_algorithm", "loss_function","ppm_form1_lower", "ppm_form1_upper", "ppm_mix_lower" ,"ppm_mix_upper", "ph0_mix_lower", "ph0_mix_upper", "ph1_mix_lower", "ph1_mix_upper")]
 	start_val_names <- param_defaults_names[str_detect(param_defaults_names, "_start")]
 	saved_params <- matrix(ncol = length(param_defaults_names) + 1, nrow = 0); colnames(saved_params) <- c("id", 	param_defaults_names)
 	
@@ -256,7 +256,7 @@ server <- function(input, output, session) {
 				    fitted <- input$prop_form2 * model_input$form2 + (1-input$prop_form2) * model_input$form1
 				    residuals <- model_input$mix - fitted
 				    dat <- cbind(model_input, fitted = fitted, residuals = residuals)
-				    solution <- c(prop_form2 = input$prop_form2, rmse = sqrt(mean(residuals^2)))
+				    solution <- c(prop_form2 = input$prop_form2, mean_error_metric = ifelse(input$loss_function == "L2", mean(residuals^2, na.rm = TRUE), mean(abs(residuals), na.rm = TRUE)))
 				    return(list(dat = dat, solution = solution, 
 				                # add below to be consistent with the other two modes of estimation
 				                start = rlang::set_names(rep(0, length(estim_order)), estim_order)))
@@ -270,7 +270,8 @@ server <- function(input, output, session) {
 				      , param_start = param_start_tmp
 				      , param_constraints = as.data.frame(param_constraints_tmp)
 				      , optim_algorithm = input$optim_algorithm
-				      , pivot_point = input$pivot_point)
+				      , pivot_point = input$pivot_point
+				      , loss_function = input$loss_function)
 				    return(mod)
 				  }
 				# proportion AND pre-processing parameters estimation below
@@ -312,7 +313,8 @@ server <- function(input, output, session) {
 				    , param_start = param_start_tmp
 				    , param_constraints = as.data.frame(param_constraints_tmp)
 				    , optim_algorithm = input$optim_algorithm
-				    , pivot_point = input$pivot_point)
+				    , pivot_point = input$pivot_point
+				    , loss_function = input$loss_function)
 				  
 				  # check if estimated parameters hit their boundaries
 				  solution_boundaries <- left_join(param_constraints_tmp, enframe(mod$solution, value = "solution"), by = "name")
@@ -372,6 +374,7 @@ server <- function(input, output, session) {
 			  update_n_inputs(tmp_name, param_defaults %>% discard(is.character) %>% unlist())
 			  updateNumericInput(session, inputId = "pivot_point", value = max_peak_of_mix())
 			  updateTextInput(session, inputId = "optim_algorithm", value = param_defaults[["optim_algorithm"]])
+			  updateTextInput(session, inputId = "loss_function", value = param_defaults[["loss_function"]])
 			  updateNumericInput(session, inputId = "ppm_range1", value = param_defaults$ppm_range1)
 			  updateNumericInput(session, inputId = "ppm_range2", value = param_defaults$ppm_range2)
 		  } else results$resultsFileLoaded <- FALSE
@@ -400,7 +403,7 @@ server <- function(input, output, session) {
 				
 				# finally, assign model estimated values
 				ms <- model_fit()$solution
-				next_row[c("id", "rmse", "prop_form2")] <- c(track_inputs_rv$count_rows, ms["rmse"], ms["prop_form2"])
+				next_row[c("id", "mean_error_metric", "prop_form2")] <- c(track_inputs_rv$count_rows, ms["mean_error_metric"], ms["prop_form2"])
 				next_row[paste0(names(model_fit()$start), "_start")] <- as.numeric(model_fit()$start) * ifelse(stri_detect(names(model_fit()$start), fixed = "ph"), to_deg_const, 1)
 				
 				if (input$estim_mode == "only_prop") {
@@ -423,7 +426,7 @@ server <- function(input, output, session) {
 				if (fit_bn_rv$counter>=2) {
 				  
 				  nam <- param_defaults %>% discard(~is.character(.x)) %>% enframe() %>% unnest(cols = c(value)) %>% 
-				    filter(!(name %in% "rmse") & !str_detect(name, pattern = "start")) %>%  pull(name)
+				    filter(!(name %in% "mean_error_metric") & !str_detect(name, pattern = "start")) %>%  pull(name)
 				  prev_dat <- track_inputs_rv$x[nrow(track_inputs_rv$x)-1,]
 				  update_n_inputs(nam, prev_dat)
 				  updateTextInput(session, inputId = "optim_algorithm", value = as.character(prev_dat["optim_algorithm"]))
@@ -549,7 +552,7 @@ server <- function(input, output, session) {
 	  req(model_fit())
 	  rv_output_stats$out_text <- paste0(
 	    "Estimated form2 proportion [0-1 interval] ", round(model_fit()$solution["prop_form2"], 7),
-	    "\nrmse (x10^6):", round(10^6 * model_fit()$solution["rmse"], 7),
+	    ifelse(input$loss_function == "L2","\nMean Squared Error (x10^6):", "\nMean Absolute Deviation (x10^6):"), round(10^6 * model_fit()$solution["mean_error_metric"], 7),
 	    "\nInitial spectrum size:", isolate(raw_data()[[2]][1, "FTSIZE"]),
 	    "\nFinal spectrum size:", isolate(raw_data_subset()[[2]][1, "FTSIZE"] + input$add_zeroes)
 	    )
@@ -587,8 +590,8 @@ server <- function(input, output, session) {
 				# Since only the last row will be loaded in, the user has to manually remove other records.
 				# The removal can be done in several ways: Delete, Backspace button on entire rows or selected cells.
 				# As a consequence, sometimes the removed rows may still be loaded in, but they will contain NA values (of different types).
-				# Heuristic: in such case remove rows with "empty": id, fit_type, rmse, prop_form2 columns.
-				var_check <- c("id", "fit_type", "rmse", "prop_form2")
+				# Heuristic: in such case remove rows with "empty": id, fit_type, mean_error_metric, prop_form2 columns.
+				var_check <- c("id", "fit_type", "mean_error_metric", "prop_form2")
 				complete_cases_ind <- !apply(tmp, 1, function(x) all(is.na(x[var_check]) | x[var_check] == "" ))
 				tmp <- tmp[complete_cases_ind,]
 				dat <- tmp[nrow(tmp),]
@@ -599,6 +602,7 @@ server <- function(input, output, session) {
 				update_n_inputs(param_selected, dat[param_selected])
 				updateNumericInput(session, inputId = "pivot_point", value = dat[["pivot_point"]]) # Also take this value from result file (in case no file paths are available)
 				updateTextInput(session, inputId = "optim_algorithm", value = as.character(dat["optim_algorithm"]))
+				updateTextInput(session, inputId = "loss_function", value = as.character(dat["loss_function"]))
 			}, label = "load in estimated results")
 	
 	output$user_comments <- renderUI({

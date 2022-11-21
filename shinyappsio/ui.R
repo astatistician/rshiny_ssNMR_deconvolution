@@ -85,6 +85,7 @@ ui <- fluidPage(
             numericInput("lb_form1", label = "Line broadening of form1 spectrum (Hz)", value = param_defaults$lb_form1, min = 0, max = +Inf, step = 0.1),
             numericInput("lb_form2", label = "Line broadening of form2 spectrum (Hz)", value = param_defaults$lb_form2, min = 0, max = +Inf, step = 0.1),
             numericInput("lb_mix", label = "Line broadening of mixture spectrum (Hz)", value = param_defaults$lb_mix, min = 0, max = +Inf, step = 0.1),
+            selectInput("loss_function", "Select loss function", selected = param_defaults$loss_function, choices = loss_function_list, selectize = FALSE),
             selectInput("optim_algorithm", "Select an optimization algorithm", selected = param_defaults$optim_algorithm, choices = optim_algorithms_list, selectize = FALSE),
             div(style = "display:inline-block", numericInput(inputId = "ph0_mix_lower", label = "PH0 lower", value = param_defaults$ph0_mix_lower, min = 0, max = 360, step = 0.01, width = 170)),
             div(style = "display:inline-block", numericInput(inputId = "ph0_mix_upper", label = "upper limit (degrees)", value = param_defaults$ph0_mix_upper, min = 0, max = 360, step = 0.01, width = 170) %>% 

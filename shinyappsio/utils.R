@@ -149,7 +149,7 @@ trim_values <- function(x, limits){
 }
 
 #' @export 
-obj_fun <- function(x, x_order, ppm, form1, form2, mix, pivot_point, mode = "objective") {
+obj_fun <- function(x, x_order, ppm, form1, form2, mix, pivot_point, loss_function, mode = "objective") {
   n_points <- length(mix)
   int_seq <- 1:n_points
   
@@ -182,11 +182,18 @@ obj_fun <- function(x, x_order, ppm, form1, form2, mix, pivot_point, mode = "obj
   # if mode = "objective" then return RSS (used in nloptr); else return input data + fitted values + residuals
   if (mode!="objective"){
     return(data.frame(ppm = ppm, form1 = x_form1, form2 = x_form2 + x_form1, mix = y_mix + x_form1, fitted = fitted + x_form1, residuals = residuals))
-  } else return(sum(residuals^2, na.rm = TRUE))
+  } else {
+    
+    if (loss_function == "L2") {
+      
+      return(sum(residuals^2, na.rm = TRUE))
+      
+      } else return(sum(abs(residuals), na.rm = TRUE))
+  }
 }
 
 #' @export 
-nloptr_wrapper <- function(data, x_order, obj_fun, param_start, param_constraints, optim_algorithm, pivot_point) {
+nloptr_wrapper <- function(data, x_order, obj_fun, param_start, param_constraints, loss_function, optim_algorithm, pivot_point) {
   results <- nloptr::nloptr(
     x0 = param_start,
     eval_f = obj_fun,
@@ -205,13 +212,14 @@ nloptr_wrapper <- function(data, x_order, obj_fun, param_start, param_constraint
     form2 = data$form2,
     ppm = data$ppm, 
     pivot_point = pivot_point,
+    loss_function = loss_function,
     mode = "objective"
   )
   
-  dat <- obj_fun(x = results$solution, x_order = x_order, ppm = data$ppm, form1 = data$form1, form2 = data$form2, mix = data$mix, pivot_point = pivot_point, mode="prediction")
+  dat <- obj_fun(x = results$solution, x_order = x_order, ppm = data$ppm, form1 = data$form1, form2 = data$form2, mix = data$mix, pivot_point = pivot_point, loss_function = loss_function, mode="prediction")
   dat <- dat[complete.cases(dat), ]
   solution <- c(
-    prop_form2 = results$solution[1], rmse = sqrt(results$objective/length(data$mix)), ph0_mix = results$solution[2] * to_deg_const,
+    prop_form2 = results$solution[1], mean_error_metric = results$objective/length(data$mix), ph0_mix = results$solution[2] * to_deg_const,
     ph1_mix = results$solution[3] * to_deg_const, ppm_form1 = results$solution[4], ppm_mix = results$solution[5], pivot_point = pivot_point
   )
   return(list(dat = dat, solution = solution, start = rlang::set_names(results$x0, x_order)))

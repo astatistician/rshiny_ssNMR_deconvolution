@@ -22,7 +22,8 @@ param_defaults <- list(
   fit_type = "",	
   approve_fit = "",
   comment = "",	
-  rmse = NA,
+  loss_function = "L2",
+  mean_error_metric = NA,
   prop_form2 =	0,
   ph0_mix	= 0,
   ph1_mix	= 0,
@@ -75,3 +76,4 @@ param_button_mapping <- tribble(~param, ~label,
                                 "ppm_mix", "Horizontal shift of mixture",
                                 "ph0_mix", "PH0 of mixture",
                                 "ph1_mix", "PH1 of mixture")
+loss_function_list <- c("L2", "L1")
